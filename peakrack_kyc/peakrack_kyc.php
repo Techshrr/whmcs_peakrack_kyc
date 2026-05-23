@@ -398,6 +398,7 @@ function peakrack_kyc_settings_from_post(array $current): array
 function peakrack_kyc_render_admin(array $settings, string $message, string $messageType, string $language): string
 {
     $t = peakrack_kyc_admin_texts($language);
+    $detailProfileId = (int) ($_GET['view_profile'] ?? 0);
     $filters = [
         'client_id' => (int) ($_GET['filter_client_id'] ?? 0),
         'status' => (string) ($_GET['filter_status'] ?? ''),
@@ -414,6 +415,7 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
     $logs = peakrackKycRecentLogs(30);
     $storage = peakrackKycStoragePath($settings);
     $storageCheck = peakrackKycEnsureStorage($storage);
+    $systemChecks = peakrackKycSystemChecks($settings);
 
     ob_start();
     ?>
@@ -447,8 +449,18 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
         .prkyc-status.revoked, .prkyc-status.expired { background: #f3f4f6; color: #374151; }
         .prkyc-status.available { background: #dcfce7; color: #166534; }
         .prkyc-status.reserved { background: #eef2f7; color: #475467; }
+        .prkyc-status.ok { background: #dcfce7; color: #166534; }
+        .prkyc-status.warn { background: #fef3c7; color: #92400e; }
+        .prkyc-status.fail { background: #fee2e2; color: #991b1b; }
+        .prkyc-system-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        .prkyc-check { border: 1px solid #e7eaee; border-radius: 6px; padding: 10px; background: #fbfcfd; }
+        .prkyc-check.ok { border-color: #bbf7d0; background: #f0fdf4; }
+        .prkyc-check.warn { border-color: #fde68a; background: #fffbeb; }
+        .prkyc-check.fail { border-color: #fecaca; background: #fef2f2; }
+        .prkyc-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
+        .prkyc-detail-label { color: #667085; font-size: 12px; margin-bottom: 2px; }
         @media (max-width: 900px) { .prkyc-grid, .prkyc-rule-form, .prkyc-filters { grid-template-columns: 1fr; } .prkyc-header { display: block; } }
-        @media (max-width: 900px) { .prkyc-provider-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .prkyc-provider-grid, .prkyc-system-grid, .prkyc-detail-grid { grid-template-columns: 1fr; } }
     </style>
     <div class="prkyc-wrap">
         <div class="prkyc-header">
@@ -468,6 +480,14 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
         <?php if (!$storageCheck['success']) { ?>
             <div class="alert alert-danger"><?php echo peakrackKycE($storageCheck['message']); ?></div>
         <?php } ?>
+
+        <?php if ($detailProfileId > 0) { ?>
+            <?php echo peakrack_kyc_render_profile_detail($detailProfileId, $settings, $language); ?>
+    </div>
+            <?php return (string) ob_get_clean(); ?>
+        <?php } ?>
+
+        <?php echo peakrack_kyc_render_system_checks($systemChecks, $t); ?>
 
         <form method="post" action="addonmodules.php?module=peakrack_kyc">
             <?php echo peakrack_kyc_admin_token_field(); ?>
@@ -499,6 +519,118 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
     </div>
     <?php
     return (string) ob_get_clean();
+}
+
+function peakrack_kyc_render_system_checks(array $checks, array $t): string
+{
+    ob_start();
+    ?>
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['system_checks']); ?></h2>
+        <div class="inner prkyc-system-grid">
+            <?php foreach ($checks as $check) {
+                $status = (string) ($check['status'] ?? 'warn');
+                $labelKey = (string) ($check['label_key'] ?? '');
+                $label = (string) ($t[$labelKey] ?? $labelKey);
+                ?>
+                <div class="prkyc-check <?php echo peakrackKycE($status); ?>">
+                    <strong><?php echo peakrackKycE($label); ?></strong>
+                    <div><span class="prkyc-status <?php echo peakrackKycE($status); ?>"><?php echo peakrackKycE((string) ($t['check_' . $status] ?? $status)); ?></span></div>
+                    <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE((string) ($check['message'] ?? '')); ?></p>
+                </div>
+            <?php } ?>
+        </div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function peakrack_kyc_render_profile_detail(int $profileId, array $settings, string $language): string
+{
+    $t = peakrack_kyc_admin_texts($language);
+    $profile = peakrackKycProfileById($profileId);
+    $backUrl = 'addonmodules.php?module=peakrack_kyc';
+    if (!$profile) {
+        return '<p><a class="btn btn-default btn-sm" href="' . $backUrl . '">' . peakrackKycE($t['back']) . '</a></p><div class="alert alert-warning">' . peakrackKycE($t['profile_not_found']) . '</div>';
+    }
+
+    $clientId = (int) ($profile->client_id ?? 0);
+    $documents = peakrackKycDocumentsForProfile($profileId);
+    $submissions = peakrackKycSubmissionsForProfile($profileId);
+    $providerLogs = peakrackKycProviderLogsForClient($clientId);
+    $auditLogs = peakrackKycAuditLogsForClient($clientId);
+    $allowedDecisions = function_exists('peakrackKycAllowedReviewDecisions')
+        ? peakrackKycAllowedReviewDecisions((string) ($profile->status ?? 'unsubmitted'))
+        : ['approve', 'reject', 'request_resubmit', 'revoke'];
+    $detailUrl = 'addonmodules.php?module=peakrack_kyc&view_profile=' . $profileId;
+
+    ob_start();
+    ?>
+    <p><a class="btn btn-default btn-sm" href="<?php echo peakrackKycE($backUrl); ?>"><?php echo peakrackKycE($t['back']); ?></a></p>
+
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['profile_detail']); ?> #<?php echo $profileId; ?></h2>
+        <div class="inner">
+            <div class="prkyc-detail-grid">
+                <?php echo peakrack_kyc_detail_item($t['client'], peakrack_kyc_client_link($clientId), true); ?>
+                <?php echo peakrack_kyc_detail_item($t['status'], '<span class="prkyc-status ' . peakrackKycE((string) ($profile->status ?? '')) . '">' . peakrackKycE((string) ($profile->status ?? '')) . '</span>', true); ?>
+                <?php echo peakrack_kyc_detail_item($t['method_label'], (string) ($profile->verification_method ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['type'], (string) ($profile->type ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['real_name'], (string) ($profile->real_name ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['company_name'], (string) ($profile->company_name ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['document_type'], (string) ($profile->document_type ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['country'], (string) ($profile->country ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['identity'], 'ID ****' . (string) ($profile->id_number_last4 ?? '') . ' / Phone ****' . (string) ($profile->phone_last4 ?? '') . ' / Reg ****' . (string) ($profile->registration_number_last4 ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['submitted_label'], (string) ($profile->submitted_at ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['verified_label'], (string) ($profile->verified_at ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['reviewed_label'], (string) ($profile->reviewed_at ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['expires_label'], (string) ($profile->expires_at ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['rejection_reason'], (string) ($profile->rejection_reason ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['last_error'], (string) ($profile->last_error ?? '')); ?>
+                <?php echo peakrack_kyc_detail_item($t['admin_notes'], (string) ($profile->admin_notes ?? '')); ?>
+            </div>
+
+            <form method="post" action="<?php echo peakrackKycE($detailUrl); ?>" style="margin-top:16px; max-width: 520px;">
+                <?php echo peakrack_kyc_admin_token_field(); ?>
+                <input type="hidden" name="prkyc_action" value="review_profile">
+                <input type="hidden" name="profile_id" value="<?php echo $profileId; ?>">
+                <textarea name="reason" class="form-control" rows="2" placeholder="<?php echo peakrackKycE($t['reason']); ?>"></textarea>
+                <div style="margin-top: 6px;">
+                    <?php if (in_array('approve', $allowedDecisions, true)) { ?><button type="submit" name="decision" value="approve" class="btn btn-success btn-xs"><?php echo peakrackKycE($t['approve']); ?></button><?php } ?>
+                    <?php if (in_array('reject', $allowedDecisions, true)) { ?><button type="submit" name="decision" value="reject" class="btn btn-danger btn-xs"><?php echo peakrackKycE($t['reject']); ?></button><?php } ?>
+                    <?php if (in_array('request_resubmit', $allowedDecisions, true)) { ?><button type="submit" name="decision" value="request_resubmit" class="btn btn-warning btn-xs"><?php echo peakrackKycE($t['resubmit']); ?></button><?php } ?>
+                    <?php if (in_array('revoke', $allowedDecisions, true)) { ?><button type="submit" name="decision" value="revoke" class="btn btn-default btn-xs"><?php echo peakrackKycE($t['revoke']); ?></button><?php } ?>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['documents']); ?></h2>
+        <div class="inner"><?php echo peakrack_kyc_render_detail_documents($documents, $profileId, $t); ?></div>
+    </div>
+
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['submissions']); ?></h2>
+        <div class="inner"><?php echo peakrack_kyc_render_submissions_table($submissions, $t); ?></div>
+    </div>
+
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['provider_logs']); ?></h2>
+        <div class="inner"><?php echo peakrack_kyc_render_provider_logs_table($providerLogs, $t); ?></div>
+    </div>
+
+    <div class="prkyc-card">
+        <h2><?php echo peakrackKycE($t['audit_logs']); ?></h2>
+        <div class="inner"><?php echo peakrack_kyc_render_logs_table($auditLogs); ?></div>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function peakrack_kyc_detail_item(string $label, string $value, bool $isHtml = false): string
+{
+    return '<div><div class="prkyc-detail-label">' . peakrackKycE($label) . '</div><div>' . ($isHtml ? $value : peakrackKycE($value)) . '</div></div>';
 }
 
 function peakrack_kyc_render_basic_settings(array $settings, array $t): string
@@ -782,7 +914,7 @@ function peakrack_kyc_render_profiles_table(array $profiles, string $language): 
                 : ['approve', 'reject', 'request_resubmit', 'revoke'];
             ?>
             <tr>
-                <td><?php echo $profileId; ?></td>
+                <td><a href="addonmodules.php?module=peakrack_kyc&view_profile=<?php echo $profileId; ?>">#<?php echo $profileId; ?></a></td>
                 <td><?php echo peakrack_kyc_client_link((int) ($profile->client_id ?? 0)); ?></td>
                 <td><?php echo peakrackKycE((string) ($profile->type ?? '')); ?><br><span class="prkyc-muted"><?php echo peakrackKycE((string) ($profile->document_type ?? '')); ?></span></td>
                 <td><span class="prkyc-status <?php echo peakrackKycE((string) ($profile->status ?? '')); ?>"><?php echo peakrackKycE((string) ($profile->status ?? '')); ?></span><br><span class="prkyc-muted"><?php echo peakrackKycE((string) ($profile->verification_method ?? '')); ?></span></td>
@@ -827,6 +959,115 @@ function peakrack_kyc_render_profiles_table(array $profiles, string $language): 
     </table>
     <?php
     return (string) ob_get_clean();
+}
+
+function peakrack_kyc_render_detail_documents(array $documents, int $profileId, array $t): string
+{
+    if (empty($documents)) {
+        return '<p class="prkyc-muted">' . peakrackKycE($t['no_documents']) . '</p>';
+    }
+
+    ob_start();
+    ?>
+    <table class="prkyc-table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th><?php echo peakrackKycE($t['document_name']); ?></th>
+            <th><?php echo peakrackKycE($t['document_type']); ?></th>
+            <th><?php echo peakrackKycE($t['mime_type']); ?></th>
+            <th><?php echo peakrackKycE($t['size']); ?></th>
+            <th><?php echo peakrackKycE($t['status']); ?></th>
+            <th><?php echo peakrackKycE($t['document_uploaded']); ?></th>
+            <th><?php echo peakrackKycE($t['action']); ?></th>
+        </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($documents as $document) { ?>
+            <tr>
+                <td><?php echo (int) ($document->id ?? 0); ?></td>
+                <td><?php echo peakrackKycE((string) ($document->original_name ?? '')); ?><br><span class="prkyc-muted"><?php echo peakrackKycE(substr((string) ($document->file_hash ?? ''), 0, 16)); ?></span></td>
+                <td><?php echo peakrackKycE((string) ($document->document_type ?? '')); ?></td>
+                <td><?php echo peakrackKycE((string) ($document->mime_type ?? '')); ?></td>
+                <td><?php echo number_format(((int) ($document->file_size ?? 0)) / 1024, 1); ?> KB</td>
+                <td><span class="prkyc-status <?php echo peakrackKycE((string) ($document->status ?? '')); ?>"><?php echo peakrackKycE((string) ($document->status ?? '')); ?></span></td>
+                <td><?php echo peakrackKycE((string) ($document->created_at ?? '')); ?></td>
+                <td>
+                    <a class="btn btn-default btn-xs" href="addonmodules.php?module=peakrack_kyc&prkyc_action=download&docid=<?php echo (int) ($document->id ?? 0); ?><?php echo peakrack_kyc_admin_token_query(); ?>"><?php echo peakrackKycE($t['download']); ?></a>
+                    <form method="post" action="addonmodules.php?module=peakrack_kyc&view_profile=<?php echo $profileId; ?>" style="display:inline;">
+                        <?php echo peakrack_kyc_admin_token_field(); ?>
+                        <input type="hidden" name="prkyc_action" value="delete_document">
+                        <input type="hidden" name="document_id" value="<?php echo (int) ($document->id ?? 0); ?>">
+                        <button type="submit" class="btn btn-link btn-xs" onclick="return confirm('<?php echo peakrackKycE($t['delete_document_confirm']); ?>');"><?php echo peakrackKycE($t['delete_document']); ?></button>
+                    </form>
+                </td>
+            </tr>
+        <?php } ?>
+        </tbody>
+    </table>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function peakrack_kyc_render_submissions_table(array $submissions, array $t): string
+{
+    if (empty($submissions)) {
+        return '<p class="prkyc-muted">' . peakrackKycE($t['no_submissions']) . '</p>';
+    }
+
+    $html = '<table class="prkyc-table"><thead><tr><th>ID</th><th>' . peakrackKycE($t['type']) . '</th><th>Provider</th><th>' . peakrackKycE($t['status']) . '</th><th>' . peakrackKycE($t['submitted_label']) . '</th><th>' . peakrackKycE($t['reviewed_label']) . '</th><th>' . peakrackKycE($t['result_summary']) . '</th></tr></thead><tbody>';
+    foreach ($submissions as $submission) {
+        $html .= '<tr>'
+            . '<td>' . (int) ($submission->id ?? 0) . '</td>'
+            . '<td>' . peakrackKycE((string) ($submission->type ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($submission->provider ?? '')) . '</td>'
+            . '<td><span class="prkyc-status ' . peakrackKycE((string) ($submission->status ?? '')) . '">' . peakrackKycE((string) ($submission->status ?? '')) . '</span></td>'
+            . '<td>' . peakrackKycE((string) ($submission->submitted_at ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($submission->reviewed_at ?? '')) . '</td>'
+            . '<td>' . peakrackKycE(peakrack_kyc_safe_result_summary((string) ($submission->result_json ?? ''))) . '</td>'
+            . '</tr>';
+    }
+    $html .= '</tbody></table>';
+    return $html;
+}
+
+function peakrack_kyc_render_provider_logs_table(array $logs, array $t): string
+{
+    if (empty($logs)) {
+        return '<p class="prkyc-muted">' . peakrackKycE($t['no_provider_logs']) . '</p>';
+    }
+
+    $html = '<table class="prkyc-table"><thead><tr><th>Time</th><th>Provider</th><th>' . peakrackKycE($t['status']) . '</th><th>' . peakrackKycE($t['result_code']) . '</th><th>RequestId</th><th>Description</th><th>ISP</th></tr></thead><tbody>';
+    foreach ($logs as $log) {
+        $html .= '<tr>'
+            . '<td>' . peakrackKycE((string) ($log->created_at ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($log->provider ?? '')) . '</td>'
+            . '<td><span class="prkyc-status ' . peakrackKycE((string) ($log->status ?? '')) . '">' . peakrackKycE((string) ($log->status ?? '')) . '</span></td>'
+            . '<td>' . peakrackKycE((string) ($log->result_code ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($log->request_id ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($log->description ?? '')) . '</td>'
+            . '<td>' . peakrackKycE((string) ($log->isp ?? '')) . '</td>'
+            . '</tr>';
+    }
+    $html .= '</tbody></table>';
+    return $html;
+}
+
+function peakrack_kyc_safe_result_summary(string $json): string
+{
+    $data = peakrackKycJsonDecode($json, []);
+    if (!is_array($data) || empty($data)) {
+        return '';
+    }
+
+    $parts = [];
+    foreach (['code', 'message', 'request_id', 'description'] as $key) {
+        if (isset($data[$key]) && is_scalar($data[$key]) && (string) $data[$key] !== '') {
+            $parts[] = $key . ': ' . (string) $data[$key];
+        }
+    }
+
+    return implode(' | ', $parts);
 }
 
 function peakrack_kyc_render_logs_table(array $logs): string
@@ -1078,6 +1319,10 @@ function peakrack_kyc_admin_texts(string $language): array
         'method_label' => 'Method',
         'submitted_label' => 'Submitted',
         'verified_label' => 'Verified',
+        'real_name' => 'Legal name',
+        'company_name' => 'Company name',
+        'country' => 'Country code',
+        'document_type' => 'Document type',
         'document_name' => 'Name',
         'document_status' => 'Status',
         'document_uploaded' => 'Uploaded',
@@ -1087,6 +1332,36 @@ function peakrack_kyc_admin_texts(string $language): array
         'delete_document_confirm' => 'Delete this document?',
         'resubmit_notice' => 'Your verification requires updated materials. Review the reason above and submit corrected documents.',
         'verified_notice' => 'Your identity verification is approved. Contact support if your information changes.',
+        'system_checks' => 'System Checks',
+        'check_ok' => 'OK',
+        'check_warn' => 'Warning',
+        'check_fail' => 'Fail',
+        'check_php_version' => 'PHP version',
+        'check_curl' => 'PHP cURL',
+        'check_openssl' => 'OpenSSL',
+        'check_fileinfo' => 'Fileinfo MIME check',
+        'check_storage' => 'Private storage',
+        'check_storage_guards' => 'Storage deny files',
+        'check_tencent_credentials' => 'Tencent credentials',
+        'profile_detail' => 'Profile Detail',
+        'back' => 'Back',
+        'profile_not_found' => 'Verification profile was not found.',
+        'reviewed_label' => 'Reviewed',
+        'expires_label' => 'Expires',
+        'rejection_reason' => 'Rejection reason',
+        'last_error' => 'Last error',
+        'admin_notes' => 'Admin notes',
+        'no_documents' => 'No documents.',
+        'download' => 'Download',
+        'size' => 'Size',
+        'mime_type' => 'MIME',
+        'submissions' => 'Submissions',
+        'no_submissions' => 'No submissions.',
+        'result_summary' => 'Result summary',
+        'provider_logs' => 'Provider Logs',
+        'no_provider_logs' => 'No provider logs.',
+        'audit_logs' => 'Audit Logs',
+        'result_code' => 'Result code',
     ]);
     $texts['zh'] = array_replace($texts['zh'], [
         'status_title' => '实名状态',
@@ -1122,6 +1397,36 @@ function peakrack_kyc_admin_texts(string $language): array
         'delete_document_confirm' => '确定删除这个文件吗？',
         'resubmit_notice' => '你的实名资料需要更新。请查看上方原因后重新提交修正后的材料。',
         'verified_notice' => '你的实名认证已通过。如实名信息发生变化，请联系支持处理。',
+        'system_checks' => '系统检查',
+        'check_ok' => '正常',
+        'check_warn' => '警告',
+        'check_fail' => '失败',
+        'check_php_version' => 'PHP 版本',
+        'check_curl' => 'PHP cURL',
+        'check_openssl' => 'OpenSSL',
+        'check_fileinfo' => 'Fileinfo MIME 检查',
+        'check_storage' => '私有存储',
+        'check_storage_guards' => '存储防直链文件',
+        'check_tencent_credentials' => '腾讯云密钥',
+        'profile_detail' => '实名详情',
+        'back' => '返回',
+        'profile_not_found' => '没有找到这条实名资料。',
+        'reviewed_label' => '审核时间',
+        'expires_label' => '过期时间',
+        'rejection_reason' => '驳回原因',
+        'last_error' => '最后错误',
+        'admin_notes' => '管理员备注',
+        'no_documents' => '暂无文件。',
+        'download' => '下载',
+        'size' => '大小',
+        'mime_type' => 'MIME',
+        'submissions' => '提交记录',
+        'no_submissions' => '暂无提交记录。',
+        'result_summary' => '结果摘要',
+        'provider_logs' => 'Provider 日志',
+        'no_provider_logs' => '暂无 Provider 日志。',
+        'audit_logs' => '审计日志',
+        'result_code' => '结果码',
     ]);
 
     return $texts[$language] ?? $texts['en'];

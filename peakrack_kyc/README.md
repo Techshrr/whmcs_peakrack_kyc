@@ -23,3 +23,5 @@ Do not place uploaded identity documents in this module directory. Use the confi
 Admin document downloads go through the addon controller and require a WHMCS admin session plus token. Clients can see document names/statuses and delete non-verified uploaded documents, but they cannot download original files from the client area.
 
 Default WHMCS customer email templates can be installed from the admin Email Notifications card.
+
+The v1.1 development branch adds an admin system checks card and a profile detail view for profile metadata, documents, submissions, provider logs, and audit logs.

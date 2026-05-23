@@ -13,6 +13,8 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 支持 WHMCS 9.0.3 和 PHP 8.2 / 8.3。
 - 提供客户前台实名认证中心。
 - 提供管理员后台审核队列，支持通过、驳回、撤销和要求重新提交。
+- 提供后台实名详情页，可查看文件、提交记录、Provider 日志和审计日志。
+- 提供后台系统检查卡片，用于检查 PHP 扩展、私有存储、防直链文件和 API 密钥准备状态。
 - 提供产品、产品组、TLD 实名规则的后台新增、编辑、启用/停用和删除。
 - 支持腾讯云 FaceID `PhoneVerification` 手机号、姓名、身份证号三要素核验。
 - 已实现 `TencentPhoneThreeFactorProvider` 和 `ManualReviewProvider`，并为 v1.1 路线预留 Provider 适配器。

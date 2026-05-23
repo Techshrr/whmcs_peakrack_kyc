@@ -13,6 +13,8 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Supports WHMCS 9.0.3 and PHP 8.2 / 8.3.
 - Provides a client-area identity verification center.
 - Provides an admin review queue for manual approval, rejection, revocation, and resubmission requests.
+- Provides an admin profile detail view with document, submission, provider log, and audit log sections.
+- Provides an admin system checks card for PHP extensions, private storage, guard files, and API credential readiness.
 - Provides admin CRUD for product, product group, and TLD enforcement rules.
 - Supports Chinese mainland mobile number, name, and ID number three-factor verification through Tencent Cloud FaceID `PhoneVerification`.
 - Separates providers behind a common `verify()`, `getName()`, and `getConfigFields()` interface.

@@ -6,6 +6,8 @@
 - Added a provider catalog so admin UI, settings validation, and provider instantiation use one source of truth.
 - Added reserved provider adapter classes for Alipay face verification, bank-card multi-factor verification, company verification, and overseas KYC.
 - Replaced the hidden Tencent-only API provider field with a real provider selector that shows available and reserved providers safely.
+- Added an admin profile detail view with profile summary, document downloads, submission summaries, provider logs, audit logs, and state actions.
+- Added an admin system checks card for PHP version, cURL, OpenSSL, Fileinfo, private storage, storage guard files, and Tencent credential readiness.
 
 ## 1.0.0 - 2026-05-22
 

@@ -1876,6 +1876,149 @@ if (!function_exists('peakrackKycRecentLogs')) {
     }
 }
 
+if (!function_exists('peakrackKycProfileById')) {
+    function peakrackKycProfileById(int $profileId): ?object
+    {
+        if ($profileId <= 0) {
+            return null;
+        }
+
+        try {
+            $profile = Capsule::table(PRKYC_PROFILES_TABLE)->where('id', $profileId)->first();
+            return is_object($profile) ? $profile : null;
+        } catch (Throwable $e) {
+            return null;
+        }
+    }
+}
+
+if (!function_exists('peakrackKycSubmissionsForProfile')) {
+    function peakrackKycSubmissionsForProfile(int $profileId, int $limit = 25): array
+    {
+        if ($profileId <= 0) {
+            return [];
+        }
+
+        try {
+            return Capsule::table(PRKYC_SUBMISSIONS_TABLE)
+                ->where('profile_id', $profileId)
+                ->orderBy('id', 'desc')
+                ->limit($limit)
+                ->get()
+                ->all();
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('peakrackKycProviderLogsForClient')) {
+    function peakrackKycProviderLogsForClient(int $clientId, int $limit = 25): array
+    {
+        if ($clientId <= 0) {
+            return [];
+        }
+
+        try {
+            return Capsule::table(PRKYC_PROVIDER_LOGS_TABLE)
+                ->where('client_id', $clientId)
+                ->orderBy('id', 'desc')
+                ->limit($limit)
+                ->get()
+                ->all();
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('peakrackKycAuditLogsForClient')) {
+    function peakrackKycAuditLogsForClient(int $clientId, int $limit = 25): array
+    {
+        if ($clientId <= 0) {
+            return [];
+        }
+
+        try {
+            return Capsule::table(PRKYC_LOGS_TABLE)
+                ->where('client_id', $clientId)
+                ->orderBy('id', 'desc')
+                ->limit($limit)
+                ->get()
+                ->all();
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+}
+
+if (!function_exists('peakrackKycSystemChecks')) {
+    function peakrackKycSystemChecks(array $settings): array
+    {
+        $storagePath = peakrackKycStoragePath($settings);
+        $storageCheck = peakrackKycEnsureStorage($storagePath);
+        $denyFiles = [
+            $storagePath . DIRECTORY_SEPARATOR . '.htaccess',
+            $storagePath . DIRECTORY_SEPARATOR . 'web.config',
+            $storagePath . DIRECTORY_SEPARATOR . 'index.html',
+        ];
+        $denyFilesOk = true;
+        foreach ($denyFiles as $denyFile) {
+            if (!is_file($denyFile)) {
+                $denyFilesOk = false;
+                break;
+            }
+        }
+
+        $checks = [
+            [
+                'key' => 'php_version',
+                'label_key' => 'check_php_version',
+                'status' => version_compare(PHP_VERSION, '8.2.0', '>=') && version_compare(PHP_VERSION, '8.4.0', '<') ? 'ok' : 'warn',
+                'message' => PHP_VERSION,
+            ],
+            [
+                'key' => 'curl',
+                'label_key' => 'check_curl',
+                'status' => function_exists('curl_init') ? 'ok' : 'fail',
+                'message' => function_exists('curl_init') ? 'cURL available' : 'cURL extension is required for API providers.',
+            ],
+            [
+                'key' => 'openssl',
+                'label_key' => 'check_openssl',
+                'status' => extension_loaded('openssl') ? 'ok' : 'fail',
+                'message' => extension_loaded('openssl') ? 'OpenSSL available' : 'OpenSSL is required for signed API requests.',
+            ],
+            [
+                'key' => 'fileinfo',
+                'label_key' => 'check_fileinfo',
+                'status' => class_exists('finfo') ? 'ok' : 'fail',
+                'message' => class_exists('finfo') ? 'Fileinfo available' : 'Fileinfo is required for MIME validation.',
+            ],
+            [
+                'key' => 'storage',
+                'label_key' => 'check_storage',
+                'status' => !empty($storageCheck['success']) ? 'ok' : 'fail',
+                'message' => (string) ($storageCheck['message'] ?? $storagePath),
+            ],
+            [
+                'key' => 'storage_guards',
+                'label_key' => 'check_storage_guards',
+                'status' => $denyFilesOk ? 'ok' : 'warn',
+                'message' => $denyFilesOk ? 'Storage deny files are present.' : 'Storage deny files should be regenerated.',
+            ],
+            [
+                'key' => 'tencent_credentials',
+                'label_key' => 'check_tencent_credentials',
+                'status' => empty($settings['apiVerificationEnabled']) || ((string) ($settings['tencentSecretId'] ?? '') !== '' && (string) ($settings['tencentSecretKey'] ?? '') !== '') ? 'ok' : 'warn',
+                'message' => empty($settings['apiVerificationEnabled']) ? 'API verification is disabled.' : 'Tencent credentials are required when API verification is enabled.',
+            ],
+        ];
+
+        return $checks;
+    }
+}
+
 if (!function_exists('peakrackKycStreamDocument')) {
     function peakrackKycStreamDocument(int $documentId): void
     {
