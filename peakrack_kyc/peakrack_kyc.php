@@ -117,7 +117,7 @@ function peakrack_kyc_output(array $vars): void
                 $message = $result['message'];
                 $messageType = $result['success'] ? 'success' : 'danger';
             } elseif ($action === 'install_email_templates') {
-                $result = peakrackKycEnsureEmailTemplates($settings);
+                $result = peakrackKycEnsureEmailTemplates($settings, peakrackKycBool($_POST['refreshEmailTemplates'] ?? false));
                 if (!empty($result['success']) && is_array($result['settings'] ?? null)) {
                     $settings = $result['settings'];
                     peakrackKycSaveSettings($settings);
@@ -125,6 +125,15 @@ function peakrack_kyc_output(array $vars): void
                 }
                 $message = $result['message'];
                 $messageType = $result['success'] ? 'success' : 'danger';
+            } elseif ($action === 'run_retention_cleanup') {
+                $deleted = peakrackKycCleanupRetention($settings);
+                $message = sprintf(
+                    'Retention cleanup completed. Logs: %d, API attempts: %d, deleted documents: %d.',
+                    (int) ($deleted['logs'] ?? 0),
+                    (int) ($deleted['api_attempts'] ?? 0),
+                    (int) ($deleted['documents'] ?? 0)
+                );
+                $messageType = 'success';
             } elseif ($action === 'review_profile') {
                 $result = peakrackKycReviewProfile(
                     (int) ($_POST['profile_id'] ?? 0),
@@ -673,6 +682,10 @@ function peakrack_kyc_render_rule_settings(array $settings, array $t, string $st
                 <?php echo peakrack_kyc_field_number('retentionDays', (string) $settings['retentionDays'], $t['retention_days']); ?>
                 <?php echo peakrack_kyc_field_number('maxLogs', (string) $settings['maxLogs'], $t['max_logs']); ?>
             </div>
+            <div style="margin-top:12px;">
+                <button type="submit" name="prkyc_action" value="run_retention_cleanup" class="btn btn-default btn-sm"><?php echo peakrackKycE($t['run_retention_cleanup']); ?></button>
+                <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['retention_cleanup_help']); ?></p>
+            </div>
         </div>
     </div>
     <?php
@@ -781,7 +794,12 @@ function peakrack_kyc_render_email_settings(array $settings, array $t): string
                 <?php echo peakrack_kyc_field_select('emailTemplateApproved', $settings['emailTemplateApproved'], $t['email_template_approved'], $templates); ?>
                 <?php echo peakrack_kyc_field_select('emailTemplateRejected', $settings['emailTemplateRejected'], $t['email_template_rejected'], $templates); ?>
             </div>
-            <p style="margin-top:12px;"><button type="submit" name="prkyc_action" value="install_email_templates" class="btn btn-default btn-sm"><?php echo peakrackKycE($t['install_email_templates']); ?></button></p>
+            <div style="margin-top:12px;">
+                <?php echo peakrack_kyc_checkbox('refreshEmailTemplates', false, $t['refresh_email_templates']); ?>
+                <p class="prkyc-muted" style="margin:4px 0 10px;"><?php echo peakrackKycE($t['refresh_email_templates_help']); ?></p>
+                <button type="submit" name="prkyc_action" value="install_email_templates" class="btn btn-default btn-sm"><?php echo peakrackKycE($t['install_email_templates']); ?></button>
+                <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['email_merge_fields']); ?></p>
+            </div>
         </div>
     </div>
     <?php
@@ -1166,6 +1184,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'storage_path_help' => 'Leave blank to use default private attachment path:',
             'retention_days' => 'Log retention days',
             'max_logs' => 'Maximum log rows',
+            'run_retention_cleanup' => 'Run retention cleanup now',
+            'retention_cleanup_help' => 'Deletes old audit/API logs based on retention settings and permanently removes documents that were already marked deleted before the cutoff.',
             'api_settings' => 'API Settings',
             'api_provider' => 'API provider',
             'api_provider_help' => 'Only available API providers can be selected. Reserved providers are visible here so their future configuration surface stays planned.',
@@ -1187,6 +1207,9 @@ function peakrack_kyc_admin_texts(string $language): array
             'email_builtin_default' => 'Built-in default notification',
             'templates_unavailable' => 'templates unavailable',
             'install_email_templates' => 'Install default WHMCS email templates',
+            'refresh_email_templates' => 'Refresh existing PeakRack templates',
+            'refresh_email_templates_help' => 'Leave unchecked to create only missing templates. Check it to overwrite the default PeakRack template subject and body with the bundled richer version.',
+            'email_merge_fields' => 'Available custom merge fields: {$profile_id}, {$kyc_status}, {$kyc_type}, {$kyc_method}, {$document_type}, {$country}, {$submitted_at}, {$reviewed_at}, {$reason}, {$kyc_center_url}, {$masked_identity}.',
             'client_notice' => 'Client Notice',
             'save' => 'Save Settings',
             'review_queue' => 'Review Queue',
@@ -1266,6 +1289,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'storage_path_help' => '留空使用默认私有附件路径：',
             'retention_days' => '日志保留天数',
             'max_logs' => '最大日志行数',
+            'run_retention_cleanup' => '立即执行保留清理',
+            'retention_cleanup_help' => '根据保留天数删除旧审计/API 日志，并永久移除早已标记删除且超过保留期的文件记录和物理文件。',
             'api_settings' => 'API 设置',
             'api_provider' => 'API 提供方',
             'api_provider_help' => '只能选择已可用的 API Provider。预留 Provider 会显示在这里，便于后续接入时保持配置结构一致。',
@@ -1287,6 +1312,9 @@ function peakrack_kyc_admin_texts(string $language): array
             'email_builtin_default' => '使用内置默认通知',
             'templates_unavailable' => '无法读取模板',
             'install_email_templates' => '安装默认 WHMCS 邮件模板',
+            'refresh_email_templates' => '刷新已存在的 PeakRack 模板',
+            'refresh_email_templates_help' => '不勾选时只创建缺失模板；勾选后会用插件内置的丰富版本覆盖默认 PeakRack 模板标题和正文。',
+            'email_merge_fields' => '可用自定义变量：{$profile_id}, {$kyc_status}, {$kyc_type}, {$kyc_method}, {$document_type}, {$country}, {$submitted_at}, {$reviewed_at}, {$reason}, {$kyc_center_url}, {$masked_identity}。',
             'client_notice' => '客户提示文案',
             'save' => '保存设置',
             'review_queue' => '审核队列',

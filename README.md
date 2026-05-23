@@ -25,7 +25,9 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Can keep post-checkout orders pending for review.
 - Can optionally cancel unpaid pending orders after KYC rejection.
 - Sends customer/admin email notifications when configured.
-- Can install default WHMCS customer email templates and map them automatically.
+- Can install richer bilingual WHMCS customer email templates and map them automatically.
+- Can refresh existing bundled PeakRack email templates only when the administrator explicitly opts in.
+- Provides manual retention cleanup for old audit logs, API logs, and previously deleted document records/files.
 - Stores uploaded documents in a private path with generated names and deny files to reduce direct-link exposure.
 - Requires an authenticated WHMCS admin session and token for document downloads.
 - Allows clients to delete their own non-verified uploaded documents without downloading original files.

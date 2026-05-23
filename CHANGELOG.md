@@ -8,6 +8,9 @@
 - Replaced the hidden Tencent-only API provider field with a real provider selector that shows available and reserved providers safely.
 - Added an admin profile detail view with profile summary, document downloads, submission summaries, provider logs, audit logs, and state actions.
 - Added an admin system checks card for PHP version, cURL, OpenSSL, Fileinfo, private storage, storage guard files, and Tencent credential readiness.
+- Expanded default WHMCS KYC customer email templates with bilingual content, profile metadata, status fields, reason fields, and KYC center links.
+- Added a safe refresh option for bundled PeakRack email templates so existing templates are only overwritten when the administrator opts in.
+- Added a manual retention-cleanup button in the admin UI.
 
 ## 1.0.0 - 2026-05-22
 

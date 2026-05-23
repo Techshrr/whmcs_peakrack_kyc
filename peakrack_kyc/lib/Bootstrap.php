@@ -1483,28 +1483,81 @@ if (!function_exists('peakrackKycLog')) {
 if (!function_exists('peakrackKycDefaultEmailTemplates')) {
     function peakrackKycDefaultEmailTemplates(): array
     {
+        $footer = '<p style="margin-top:18px;color:#667085;font-size:12px;">PeakRack KYC notification / PeakRack 实名认证通知</p>';
         return [
             'emailTemplateSubmitted' => [
                 'name' => 'PeakRack KYC Submitted',
                 'subject' => 'Identity verification submitted',
-                'message' => '<p>Your identity verification materials have been submitted and are waiting for review.</p><p>Profile ID: {$profile_id}</p>',
+                'message' => '<p>Hello {$client_name},</p>'
+                    . '<p>We have received your identity verification materials. Your submission is now waiting for administrator review.</p>'
+                    . '<p>您好，{$client_name}：</p>'
+                    . '<p>我们已经收到你的实名认证资料，目前正在等待管理员审核。</p>'
+                    . '<table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;margin:12px 0;">'
+                    . '<tr><td><strong>Profile ID</strong></td><td>#{$profile_id}</td></tr>'
+                    . '<tr><td><strong>Status</strong></td><td>{$kyc_status}</td></tr>'
+                    . '<tr><td><strong>Type</strong></td><td>{$kyc_type}</td></tr>'
+                    . '<tr><td><strong>Method</strong></td><td>{$kyc_method}</td></tr>'
+                    . '<tr><td><strong>Document</strong></td><td>{$document_type}</td></tr>'
+                    . '<tr><td><strong>Country</strong></td><td>{$country}</td></tr>'
+                    . '<tr><td><strong>Submitted</strong></td><td>{$submitted_at}</td></tr>'
+                    . '</table>'
+                    . '<p>You can view the latest status from the identity verification center:</p>'
+                    . '<p><a href="{$kyc_center_url}">{$kyc_center_url}</a></p>'
+                    . '<p>你可以在实名认证中心查看最新审核状态：</p>'
+                    . '<p><a href="{$kyc_center_url}">{$kyc_center_url}</a></p>'
+                    . $footer,
             ],
             'emailTemplateApproved' => [
                 'name' => 'PeakRack KYC Approved',
                 'subject' => 'Identity verification approved',
-                'message' => '<p>Your identity verification has been approved.</p><p>Profile ID: {$profile_id}</p>',
+                'message' => '<p>Hello {$client_name},</p>'
+                    . '<p>Your identity verification has been approved. Services that require verified identity can now continue according to the product rules.</p>'
+                    . '<p>您好，{$client_name}：</p>'
+                    . '<p>你的实名认证已经通过。需要实名的产品和服务现在可以按规则继续下单或开通。</p>'
+                    . '<table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;margin:12px 0;">'
+                    . '<tr><td><strong>Profile ID</strong></td><td>#{$profile_id}</td></tr>'
+                    . '<tr><td><strong>Status</strong></td><td>{$kyc_status}</td></tr>'
+                    . '<tr><td><strong>Type</strong></td><td>{$kyc_type}</td></tr>'
+                    . '<tr><td><strong>Method</strong></td><td>{$kyc_method}</td></tr>'
+                    . '<tr><td><strong>Document</strong></td><td>{$document_type}</td></tr>'
+                    . '<tr><td><strong>Country</strong></td><td>{$country}</td></tr>'
+                    . '<tr><td><strong>Reviewed</strong></td><td>{$reviewed_at}</td></tr>'
+                    . '</table>'
+                    . '<p>If your identity or company information changes later, please contact support before placing new restricted orders.</p>'
+                    . '<p>如果后续实名主体、企业信息或证件信息发生变化，请在购买受限产品前联系支持团队处理。</p>'
+                    . $footer,
             ],
             'emailTemplateRejected' => [
                 'name' => 'PeakRack KYC Rejected',
                 'subject' => 'Identity verification requires attention',
-                'message' => '<p>Your identity verification was not approved.</p><p>Reason: {$reason}</p><p>Please open the identity verification center and submit updated materials.</p>',
+                'message' => '<p>Hello {$client_name},</p>'
+                    . '<p>Your identity verification requires attention before it can be approved.</p>'
+                    . '<p>您好，{$client_name}：</p>'
+                    . '<p>你的实名认证资料需要更新后才能通过审核。</p>'
+                    . '<table cellpadding="6" cellspacing="0" border="0" style="border-collapse:collapse;margin:12px 0;">'
+                    . '<tr><td><strong>Profile ID</strong></td><td>#{$profile_id}</td></tr>'
+                    . '<tr><td><strong>Status</strong></td><td>{$kyc_status}</td></tr>'
+                    . '<tr><td><strong>Type</strong></td><td>{$kyc_type}</td></tr>'
+                    . '<tr><td><strong>Method</strong></td><td>{$kyc_method}</td></tr>'
+                    . '<tr><td><strong>Document</strong></td><td>{$document_type}</td></tr>'
+                    . '<tr><td><strong>Country</strong></td><td>{$country}</td></tr>'
+                    . '<tr><td><strong>Reviewed</strong></td><td>{$reviewed_at}</td></tr>'
+                    . '<tr><td><strong>Reason</strong></td><td>{$reason}</td></tr>'
+                    . '</table>'
+                    . '<p>Please open the identity verification center and submit corrected materials:</p>'
+                    . '<p><a href="{$kyc_center_url}">{$kyc_center_url}</a></p>'
+                    . '<p>请前往实名认证中心重新提交修正后的资料：</p>'
+                    . '<p><a href="{$kyc_center_url}">{$kyc_center_url}</a></p>'
+                    . '<p>If an order has already been paid, it may remain pending until manual handling is complete.</p>'
+                    . '<p>如果相关订单已经付款，订单可能会保持 Pending 状态，等待人工处理。</p>'
+                    . $footer,
             ],
         ];
     }
 }
 
 if (!function_exists('peakrackKycEnsureEmailTemplates')) {
-    function peakrackKycEnsureEmailTemplates(array $settings): array
+    function peakrackKycEnsureEmailTemplates(array $settings, bool $refreshExisting = false): array
     {
         try {
             $schema = Capsule::schema();
@@ -1514,19 +1567,19 @@ if (!function_exists('peakrackKycEnsureEmailTemplates')) {
 
             $now = date('Y-m-d H:i:s');
             $created = 0;
+            $updated = 0;
             $templateNames = [];
             foreach (peakrackKycDefaultEmailTemplates() as $settingKey => $template) {
                 $name = (string) $template['name'];
                 $templateNames[$settingKey] = $name;
-                $exists = Capsule::table('tblemailtemplates')
+                $existing = Capsule::table('tblemailtemplates')
                     ->where('type', 'general')
                     ->where('name', $name)
-                    ->exists();
-                if ($exists) {
+                    ->first();
+                if ($existing && !$refreshExisting) {
                     continue;
                 }
 
-                $payload = [];
                 $candidates = [
                     'type' => 'general',
                     'name' => $name,
@@ -1544,10 +1597,25 @@ if (!function_exists('peakrackKycEnsureEmailTemplates')) {
                     'updated_at' => $now,
                 ];
 
+                $payload = [];
                 foreach ($candidates as $column => $value) {
                     if ($schema->hasColumn('tblemailtemplates', $column)) {
                         $payload[$column] = $value;
                     }
+                }
+
+                if ($existing) {
+                    $updatePayload = [];
+                    foreach (['subject', 'message', 'plaintext', 'updated_at'] as $column) {
+                        if (array_key_exists($column, $payload)) {
+                            $updatePayload[$column] = $payload[$column];
+                        }
+                    }
+                    if (!empty($updatePayload)) {
+                        Capsule::table('tblemailtemplates')->where('id', (int) $existing->id)->update($updatePayload);
+                        $updated++;
+                    }
+                    continue;
                 }
 
                 Capsule::table('tblemailtemplates')->insert($payload);
@@ -1560,14 +1628,102 @@ if (!function_exists('peakrackKycEnsureEmailTemplates')) {
 
             return [
                 'success' => true,
-                'message' => $created > 0 ? 'Email templates installed.' : 'Email templates already exist.',
+                'message' => $created > 0 || $updated > 0
+                    ? 'Email templates installed/refreshed.'
+                    : 'Email templates already exist.',
                 'settings' => $settings,
                 'created' => $created,
+                'updated' => $updated,
             ];
         } catch (Throwable $e) {
             peakrackKycLog('error', 'Unable to install KYC email templates: ' . $e->getMessage());
             return ['success' => false, 'message' => 'Unable to install email templates.', 'settings' => $settings];
         }
+    }
+}
+
+if (!function_exists('peakrackKycSystemUrl')) {
+    function peakrackKycSystemUrl(): string
+    {
+        $url = '';
+        if (isset($GLOBALS['CONFIG']['SystemURL'])) {
+            $url = (string) $GLOBALS['CONFIG']['SystemURL'];
+        }
+        if ($url === '' && isset($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $url = $scheme . '://' . (string) $_SERVER['HTTP_HOST'];
+        }
+
+        return rtrim($url, '/');
+    }
+}
+
+if (!function_exists('peakrackKycBuildEmailContext')) {
+    function peakrackKycBuildEmailContext(int $clientId, string $event, array $context): array
+    {
+        $context['client_id'] = $clientId;
+        $context['kyc_event'] = $event;
+        $context['kyc_center_url'] = peakrackKycSystemUrl() . '/index.php?m=peakrack_kyc';
+        $context['reason'] = trim((string) ($context['reason'] ?? ''));
+
+        try {
+            $client = Capsule::table('tblclients')->where('id', $clientId)->first();
+            if ($client) {
+                $name = trim((string) ($client->firstname ?? '') . ' ' . (string) ($client->lastname ?? ''));
+                if ($name === '') {
+                    $name = trim((string) ($client->companyname ?? ''));
+                }
+                $context['client_name'] = $name !== '' ? $name : ('Client #' . $clientId);
+                $context['client_email'] = (string) ($client->email ?? '');
+            }
+        } catch (Throwable $e) {
+            $context['client_name'] = $context['client_name'] ?? ('Client #' . $clientId);
+        }
+
+        try {
+            $profile = null;
+            $profileId = (int) ($context['profile_id'] ?? 0);
+            if ($profileId > 0) {
+                $profile = Capsule::table(PRKYC_PROFILES_TABLE)->where('id', $profileId)->first();
+            }
+            if (!$profile) {
+                $profile = Capsule::table(PRKYC_PROFILES_TABLE)->where('client_id', $clientId)->first();
+            }
+
+            if ($profile) {
+                $context['profile_id'] = (int) ($profile->id ?? 0);
+                $context['kyc_status'] = (string) ($profile->status ?? '');
+                $context['kyc_type'] = (string) ($profile->type ?? '');
+                $context['kyc_method'] = (string) ($profile->verification_method ?? '');
+                $context['document_type'] = (string) ($profile->document_type ?? '');
+                $context['country'] = (string) ($profile->country ?? '');
+                $context['company_name'] = (string) ($profile->company_name ?? '');
+                $context['submitted_at'] = (string) ($profile->submitted_at ?? '');
+                $context['reviewed_at'] = (string) ($profile->reviewed_at ?? '');
+                $context['verified_at'] = (string) ($profile->verified_at ?? '');
+                $context['expires_at'] = (string) ($profile->expires_at ?? '');
+                $context['masked_identity'] = trim(
+                    'ID ****' . (string) ($profile->id_number_last4 ?? '')
+                    . ' / Phone ****' . (string) ($profile->phone_last4 ?? '')
+                    . ' / Reg ****' . (string) ($profile->registration_number_last4 ?? '')
+                );
+                if ($context['reason'] === '' && (string) ($profile->rejection_reason ?? '') !== '') {
+                    $context['reason'] = (string) $profile->rejection_reason;
+                }
+            }
+        } catch (Throwable $e) {
+        }
+
+        foreach (['client_name', 'kyc_status', 'kyc_type', 'kyc_method', 'document_type', 'country', 'company_name', 'submitted_at', 'reviewed_at', 'verified_at', 'expires_at', 'masked_identity'] as $key) {
+            if (!isset($context[$key]) || !is_scalar($context[$key])) {
+                $context[$key] = '';
+            }
+        }
+        if (!isset($context['profile_id'])) {
+            $context['profile_id'] = 0;
+        }
+
+        return $context;
     }
 }
 
@@ -1598,9 +1754,10 @@ if (!function_exists('peakrackKycSendClientNotification')) {
         ];
 
         $template = (string) ($settings[$templateMap[$event] ?? ''] ?? '');
+        $emailContext = peakrackKycBuildEmailContext($clientId, $event, $context);
         try {
             if ($template !== '' && function_exists('sendMessage')) {
-                sendMessage($template, $clientId, $context);
+                sendMessage($template, $clientId, $emailContext);
                 return;
             }
 
@@ -1609,7 +1766,10 @@ if (!function_exists('peakrackKycSendClientNotification')) {
                     'id' => $clientId,
                     'customtype' => 'general',
                     'customsubject' => $subjects[$event] ?? 'Identity verification update',
-                    'custommessage' => $messages[$event] ?? 'Your identity verification status was updated.',
+                    'custommessage' => ($messages[$event] ?? 'Your identity verification status was updated.')
+                        . "\n\nProfile ID: " . (string) ($emailContext['profile_id'] ?? '')
+                        . "\nStatus: " . (string) ($emailContext['kyc_status'] ?? '')
+                        . "\nKYC center: " . (string) ($emailContext['kyc_center_url'] ?? ''),
                 ]);
             }
         } catch (Throwable $e) {
@@ -1649,7 +1809,7 @@ if (!function_exists('peakrackKycSendAdminNotification')) {
 if (!function_exists('peakrackKycCleanupRetention')) {
     function peakrackKycCleanupRetention(array $settings): array
     {
-        $deleted = ['logs' => 0, 'api_attempts' => 0];
+        $deleted = ['logs' => 0, 'api_attempts' => 0, 'documents' => 0];
         $days = (int) $settings['retentionDays'];
         if ($days > 0) {
             $cutoff = date('Y-m-d H:i:s', time() - ($days * 86400));
@@ -1664,7 +1824,7 @@ if (!function_exists('peakrackKycCleanupRetention')) {
                 if (is_file((string) ($document->storage_path ?? ''))) {
                     @unlink((string) $document->storage_path);
                 }
-                Capsule::table(PRKYC_DOCUMENTS_TABLE)->where('id', (int) $document->id)->delete();
+                $deleted['documents'] += (int) Capsule::table(PRKYC_DOCUMENTS_TABLE)->where('id', (int) $document->id)->delete();
             }
         }
 
