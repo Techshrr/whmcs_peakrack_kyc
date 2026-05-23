@@ -1,0 +1,15 @@
+/vendor/
+/node_modules/
+/.idea/
+/.vscode/
+*.log
+*.zip
+*.tar.gz
+*.sql
+!database/*.sql
+!peakrack_kyc/database/*.sql
+*.sqlite
+configuration.php
+attachments/
+storage/
+peakrack_kyc_private/
