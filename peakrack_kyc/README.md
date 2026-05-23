@@ -13,7 +13,7 @@ Main files:
 - `peakrack_kyc.php`: addon lifecycle, admin UI, and client-area handler.
 - `hooks.php`: checkout, provisioning, post-checkout, and cron hooks.
 - `lib/Bootstrap.php`: settings, storage, KYC status, rule CRUD, API providers, uploads, logs, email templates, and enforcement helpers.
-- `lib/Providers/`: provider interface plus v1 Tencent phone three-factor and manual review providers.
+- `lib/Providers/`: provider interface, available Tencent/manual providers, and reserved v1.1 provider adapters.
 - `templates/clientarea.tpl`: Lagom/Bootstrap-compatible client KYC page.
 - `lang/`: WHMCS addon language files.
 - `database/`: install and optional cleanup SQL for review before deployment.

@@ -13,7 +13,7 @@ modules/addons/peakrack_kyc/
 - `peakrack_kyc.php`：插件生命周期、后台 UI 和客户前台处理。
 - `hooks.php`：下单拦截、开通拦截、下单后记录和定时清理。
 - `lib/Bootstrap.php`：设置、存储、实名状态、规则 CRUD、API Provider、上传、日志、邮件模板和强制实名逻辑。
-- `lib/Providers/`：Provider 统一接口，以及 v1 腾讯云三要素和人工审核 Provider。
+- `lib/Providers/`：Provider 统一接口、已可用的腾讯云/人工审核 Provider，以及 v1.1 预留 Provider 适配器。
 - `templates/clientarea.tpl`：兼容 Lagom / Bootstrap 的客户实名页面。
 - `lang/`：WHMCS 插件语言文件。
 - `database/`：安装建表 SQL 和可选清理 SQL，便于部署前核对。

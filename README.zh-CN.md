@@ -6,7 +6,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 当前版本
 
-`1.0.0`
+`1.1.0-dev`
 
 ## 功能
 
@@ -15,7 +15,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 提供管理员后台审核队列，支持通过、驳回、撤销和要求重新提交。
 - 提供产品、产品组、TLD 实名规则的后台新增、编辑、启用/停用和删除。
 - 支持腾讯云 FaceID `PhoneVerification` 手机号、姓名、身份证号三要素核验。
-- v1.0 实现 `TencentPhoneThreeFactorProvider` 和 `ManualReviewProvider`。
+- 已实现 `TencentPhoneThreeFactorProvider` 和 `ManualReviewProvider`，并为 v1.1 路线预留 Provider 适配器。
 - 支持个人、企业、海外护照、地址证明、营业执照、水电费账单等人工上传审核场景。
 - 可在下单前拦截未实名客户，也可允许先下单但禁止自动开通。
 - 实名驳回后可选择人工处理，或自动取消未付款 Pending 订单。
@@ -28,7 +28,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 范围说明
 
-`1.0.0` 只实现稳定可交付的基础实名认证流程、腾讯云手机号三要素和人工证件审核。支付宝人脸、银行卡多要素、法人人脸、海外 KYC API 等保留为后续 Provider 适配器，不在 v1.0 启用运行代码。
+`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，用于后续接入支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API。预留 Provider 会显示在后台，但在真实核验逻辑完成前不能选择启用。
 
 ## 安装
 

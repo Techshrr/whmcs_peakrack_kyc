@@ -6,7 +6,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Current Version
 
-`1.0.0`
+`1.1.0-dev`
 
 ## Features
 
@@ -16,7 +16,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Provides admin CRUD for product, product group, and TLD enforcement rules.
 - Supports Chinese mainland mobile number, name, and ID number three-factor verification through Tencent Cloud FaceID `PhoneVerification`.
 - Separates providers behind a common `verify()`, `getName()`, and `getConfigFields()` interface.
-- Implements `TencentPhoneThreeFactorProvider` and `ManualReviewProvider` for v1.0.
+- Implements `TencentPhoneThreeFactorProvider` and `ManualReviewProvider`, with reserved provider adapters for the v1.1 roadmap.
 - Supports manual document upload for individuals, companies, overseas passport verification, address proof, business licenses, utility bills, and mixed KYC cases.
 - Can block checkout for unverified clients when selected products, product groups, or reserved TLD rules require KYC.
 - Can abort product provisioning if a required product reaches module creation before the client is verified.
@@ -34,7 +34,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Scope Notes
 
-Version 1.0.0 implements the reusable WHMCS KYC workflow, Tencent phone three-factor verification, and manual document review. Alipay face verification, bank-card multi-factor verification, legal-representative face verification, and dedicated overseas KYC providers are intentionally reserved for later provider adapters.
+Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch starts the provider framework for Alipay face verification, bank-card multi-factor verification, legal-representative/company verification, and dedicated overseas KYC providers. Those reserved providers are visible in the admin UI but are not selectable until their runtime verification logic is implemented.
 
 ## Package Layout
 

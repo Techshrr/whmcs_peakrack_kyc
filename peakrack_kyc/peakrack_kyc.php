@@ -358,7 +358,7 @@ function peakrack_kyc_settings_from_post(array $current): array
     $settings['provisioningBlockEnabled'] = peakrackKycBool($_POST['provisioningBlockEnabled'] ?? false);
     $settings['postOrderHoldEnabled'] = peakrackKycBool($_POST['postOrderHoldEnabled'] ?? false);
     $settings['adminLanguage'] = in_array((string) ($current['adminLanguage'] ?? 'en'), ['en', 'zh'], true) ? (string) $current['adminLanguage'] : 'en';
-    $settings['apiProvider'] = 'tencent_phone_three_factor';
+    $settings['apiProvider'] = (string) ($_POST['apiProvider'] ?? 'tencent_phone_three_factor');
     $settings['tencentSecretId'] = trim((string) ($_POST['tencentSecretId'] ?? ''));
     $postedTencentSecretKey = trim((string) ($_POST['tencentSecretKey'] ?? ''));
     $settings['tencentSecretKey'] = $postedTencentSecretKey !== '' ? $postedTencentSecretKey : (string) ($current['tencentSecretKey'] ?? '');
@@ -604,21 +604,19 @@ function peakrack_kyc_render_rule_manager(array $rules, array $t): string
 
 function peakrack_kyc_render_provider_settings(array $settings, array $t): string
 {
+    $providers = peakrackKycProviderCatalog();
     ob_start();
     ?>
     <div class="prkyc-card">
         <h2><?php echo peakrackKycE($t['provider_settings']); ?></h2>
         <div class="inner">
-            <input type="hidden" name="apiProvider" value="tencent_phone_three_factor">
             <div class="prkyc-provider-grid">
-                <?php echo peakrack_kyc_provider_card('TencentPhoneThreeFactorProvider', $t['provider_ready'], $t['provider_tencent_desc'], 'available'); ?>
-                <?php echo peakrack_kyc_provider_card('ManualReviewProvider', $t['provider_ready'], $t['provider_manual_desc'], 'available'); ?>
-                <?php echo peakrack_kyc_provider_card('AlipayFaceProvider', $t['provider_reserved'], $t['provider_reserved_desc'], 'reserved'); ?>
-                <?php echo peakrack_kyc_provider_card('BankCardProvider', $t['provider_reserved'], $t['provider_reserved_desc'], 'reserved'); ?>
-                <?php echo peakrack_kyc_provider_card('CompanyVerificationProvider', $t['provider_reserved'], $t['provider_reserved_desc'], 'reserved'); ?>
-                <?php echo peakrack_kyc_provider_card('OverseasKycProvider', $t['provider_reserved'], $t['provider_reserved_desc'], 'reserved'); ?>
+                <?php foreach ($providers as $provider) { ?>
+                    <?php echo peakrack_kyc_provider_card($provider, $t); ?>
+                <?php } ?>
             </div>
             <div class="prkyc-grid">
+                <?php echo peakrack_kyc_api_provider_select($settings, $t); ?>
                 <?php echo peakrack_kyc_checkbox('apiTestMode', $settings['apiTestMode'], $t['test_mode']); ?>
                 <?php echo peakrack_kyc_field_number('apiTimeout', (string) $settings['apiTimeout'], $t['api_timeout']); ?>
                 <?php echo peakrack_kyc_field_text('tencentSecretId', $settings['tencentSecretId'], 'Tencent SecretId'); ?>
@@ -673,9 +671,43 @@ function peakrack_kyc_render_client_notice_settings(array $settings, array $t): 
     return (string) ob_get_clean();
 }
 
-function peakrack_kyc_provider_card(string $name, string $status, string $description, string $class): string
+function peakrack_kyc_provider_card(array $provider, array $t): string
 {
-    return '<div class="prkyc-provider ' . peakrackKycE($class) . '"><strong>' . peakrackKycE($name) . '</strong><span class="prkyc-status ' . peakrackKycE($class) . '">' . peakrackKycE($status) . '</span><p class="prkyc-muted" style="margin:8px 0 0;">' . peakrackKycE($description) . '</p></div>';
+    $status = (string) ($provider['status'] ?? 'reserved');
+    $statusLabel = $status === 'available' ? $t['provider_ready'] : $t['provider_reserved'];
+    $descriptionKey = (string) ($provider['description_key'] ?? 'provider_reserved_desc');
+    $description = (string) ($t[$descriptionKey] ?? $t['provider_reserved_desc']);
+    $code = (string) ($provider['code'] ?? '');
+    $label = (string) ($provider['label'] ?? $code);
+
+    return '<div class="prkyc-provider ' . peakrackKycE($status) . '"><strong>' . peakrackKycE($label) . '</strong><span class="prkyc-status ' . peakrackKycE($status) . '">' . peakrackKycE($statusLabel) . '</span><p class="prkyc-muted" style="margin:8px 0 0;">' . peakrackKycE($description) . '</p><p class="prkyc-muted" style="margin:6px 0 0;"><code>' . peakrackKycE($code) . '</code></p></div>';
+}
+
+function peakrack_kyc_api_provider_select(array $settings, array $t): string
+{
+    ob_start();
+    ?>
+    <label>
+        <?php echo peakrackKycE($t['api_provider']); ?>
+        <select class="form-control" name="apiProvider">
+            <?php foreach (peakrackKycProviderCatalog() as $code => $provider) {
+                if (($provider['kind'] ?? '') !== 'api') {
+                    continue;
+                }
+                $status = (string) ($provider['status'] ?? 'reserved');
+                $statusLabel = $status === 'available' ? $t['provider_ready'] : $t['provider_reserved'];
+                $label = (string) ($provider['label'] ?? $code);
+                $disabled = empty($provider['selectable']);
+                ?>
+                <option value="<?php echo peakrackKycE((string) $code); ?>" <?php echo (string) $settings['apiProvider'] === (string) $code ? 'selected' : ''; ?> <?php echo $disabled ? 'disabled' : ''; ?>>
+                    <?php echo peakrackKycE($label . ' - ' . $statusLabel); ?>
+                </option>
+            <?php } ?>
+        </select>
+        <small class="text-muted"><?php echo peakrackKycE($t['api_provider_help']); ?></small>
+    </label>
+    <?php
+    return (string) ob_get_clean();
 }
 
 function peakrack_kyc_render_filters(array $t): string
@@ -895,11 +927,16 @@ function peakrack_kyc_admin_texts(string $language): array
             'max_logs' => 'Maximum log rows',
             'api_settings' => 'API Settings',
             'api_provider' => 'API provider',
+            'api_provider_help' => 'Only available API providers can be selected. Reserved providers are visible here so their future configuration surface stays planned.',
             'provider_ready' => 'Ready',
             'provider_reserved' => 'Reserved',
             'provider_tencent_desc' => 'Tencent Cloud PhoneVerification for Chinese mainland phone, name, and ID matching.',
             'provider_manual_desc' => 'Manual upload and admin review for individual, company, passport, and address-proof workflows.',
-            'provider_reserved_desc' => 'Reserved for a later provider adapter; no v1.0 runtime code is enabled.',
+            'provider_alipay_desc' => 'Reserved for Alipay face verification with a future signed redirect / callback workflow.',
+            'provider_bank_card_desc' => 'Reserved for bank-card multi-factor identity checks such as name, ID, card number, and phone.',
+            'provider_company_desc' => 'Reserved for legal entity verification, business license checks, and legal representative face verification.',
+            'provider_overseas_desc' => 'Reserved for overseas KYC API flows such as passport, address proof, sanctions, and liveness checks.',
+            'provider_reserved_desc' => 'Reserved for a later provider adapter; runtime verification is not enabled yet.',
             'test_mode' => 'Test / sandbox mode',
             'secret_help' => 'Leave blank to keep the saved secret. Saved secrets are not rendered back to the page.',
             'api_timeout' => 'API timeout seconds',
@@ -990,11 +1027,16 @@ function peakrack_kyc_admin_texts(string $language): array
             'max_logs' => '最大日志行数',
             'api_settings' => 'API 设置',
             'api_provider' => 'API 提供方',
+            'api_provider_help' => '只能选择已可用的 API Provider。预留 Provider 会显示在这里，便于后续接入时保持配置结构一致。',
             'provider_ready' => '可用',
             'provider_reserved' => '预留',
             'provider_tencent_desc' => '腾讯云 PhoneVerification，用于中国大陆手机号、姓名、身份证三要素核验。',
             'provider_manual_desc' => '人工上传和后台审核，覆盖个人、企业、护照和地址证明流程。',
-            'provider_reserved_desc' => '预留给后续 Provider 适配器，v1.0 不启用运行代码。',
+            'provider_alipay_desc' => '预留支付宝人脸核验，后续接入签名跳转和回调流程。',
+            'provider_bank_card_desc' => '预留银行卡多要素认证，例如姓名、身份证、银行卡号和手机号组合核验。',
+            'provider_company_desc' => '预留企业主体、营业执照和法人人脸核验流程。',
+            'provider_overseas_desc' => '预留海外 KYC API，例如护照、地址证明、制裁名单和活体检测。',
+            'provider_reserved_desc' => '预留给后续 Provider 适配器，目前不启用运行核验。',
             'test_mode' => '测试 / 沙箱模式',
             'secret_help' => '留空表示保留已保存密钥，已保存密钥不会回显到页面。',
             'api_timeout' => 'API 超时秒数',

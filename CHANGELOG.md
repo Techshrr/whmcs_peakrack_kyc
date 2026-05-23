@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0-dev - Unreleased
+
+- Started the v1.1 provider framework on `develop/v1.1`.
+- Added a provider catalog so admin UI, settings validation, and provider instantiation use one source of truth.
+- Added reserved provider adapter classes for Alipay face verification, bank-card multi-factor verification, company verification, and overseas KYC.
+- Replaced the hidden Tencent-only API provider field with a real provider selector that shows available and reserved providers safely.
+
 ## 1.0.0 - 2026-05-22
 
 - Initial PeakRack KYC addon package.

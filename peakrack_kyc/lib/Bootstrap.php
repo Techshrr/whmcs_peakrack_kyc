@@ -7,7 +7,11 @@
  */
 
 use WHMCS\Database\Capsule;
+use PeakRack\Kyc\Providers\AlipayFaceProvider;
+use PeakRack\Kyc\Providers\BankCardProvider;
+use PeakRack\Kyc\Providers\CompanyVerificationProvider;
 use PeakRack\Kyc\Providers\ManualReviewProvider;
+use PeakRack\Kyc\Providers\OverseasKycProvider;
 use PeakRack\Kyc\Providers\ProviderInterface;
 use PeakRack\Kyc\Providers\TencentPhoneThreeFactorProvider;
 
@@ -16,11 +20,16 @@ if (!defined('WHMCS')) {
 }
 
 require_once __DIR__ . '/Providers/ProviderInterface.php';
+require_once __DIR__ . '/Providers/ReservedProvider.php';
 require_once __DIR__ . '/Providers/TencentPhoneThreeFactorProvider.php';
 require_once __DIR__ . '/Providers/ManualReviewProvider.php';
+require_once __DIR__ . '/Providers/AlipayFaceProvider.php';
+require_once __DIR__ . '/Providers/BankCardProvider.php';
+require_once __DIR__ . '/Providers/CompanyVerificationProvider.php';
+require_once __DIR__ . '/Providers/OverseasKycProvider.php';
 
 const PRKYC_MODULE = 'peakrack_kyc';
-const PRKYC_VERSION = '1.0.0';
+const PRKYC_VERSION = '1.1.0-dev';
 const PRKYC_SETTING_KEY = 'config';
 const PRKYC_SETTINGS_TABLE = 'mod_peakrack_kyc_settings';
 const PRKYC_PROFILES_TABLE = 'mod_peakrack_kyc_profiles';
@@ -282,6 +291,82 @@ if (!function_exists('peakrackKycSaveSettings')) {
     }
 }
 
+if (!function_exists('peakrackKycProviderCatalog')) {
+    function peakrackKycProviderCatalog(): array
+    {
+        return [
+            'tencent_phone_three_factor' => [
+                'code' => 'tencent_phone_three_factor',
+                'class' => TencentPhoneThreeFactorProvider::class,
+                'label' => 'TencentPhoneThreeFactorProvider',
+                'kind' => 'api',
+                'status' => 'available',
+                'selectable' => true,
+                'description_key' => 'provider_tencent_desc',
+            ],
+            'manual_review' => [
+                'code' => 'manual_review',
+                'class' => ManualReviewProvider::class,
+                'label' => 'ManualReviewProvider',
+                'kind' => 'manual',
+                'status' => 'available',
+                'selectable' => false,
+                'description_key' => 'provider_manual_desc',
+            ],
+            'alipay_face' => [
+                'code' => 'alipay_face',
+                'class' => AlipayFaceProvider::class,
+                'label' => 'AlipayFaceProvider',
+                'kind' => 'api',
+                'status' => 'reserved',
+                'selectable' => false,
+                'description_key' => 'provider_alipay_desc',
+            ],
+            'bank_card_multi_factor' => [
+                'code' => 'bank_card_multi_factor',
+                'class' => BankCardProvider::class,
+                'label' => 'BankCardProvider',
+                'kind' => 'api',
+                'status' => 'reserved',
+                'selectable' => false,
+                'description_key' => 'provider_bank_card_desc',
+            ],
+            'company_verification' => [
+                'code' => 'company_verification',
+                'class' => CompanyVerificationProvider::class,
+                'label' => 'CompanyVerificationProvider',
+                'kind' => 'api',
+                'status' => 'reserved',
+                'selectable' => false,
+                'description_key' => 'provider_company_desc',
+            ],
+            'overseas_kyc' => [
+                'code' => 'overseas_kyc',
+                'class' => OverseasKycProvider::class,
+                'label' => 'OverseasKycProvider',
+                'kind' => 'api',
+                'status' => 'reserved',
+                'selectable' => false,
+                'description_key' => 'provider_overseas_desc',
+            ],
+        ];
+    }
+}
+
+if (!function_exists('peakrackKycAvailableApiProviders')) {
+    function peakrackKycAvailableApiProviders(): array
+    {
+        $providers = [];
+        foreach (peakrackKycProviderCatalog() as $code => $metadata) {
+            if (($metadata['kind'] ?? '') === 'api' && !empty($metadata['selectable'])) {
+                $providers[] = $code;
+            }
+        }
+
+        return $providers;
+    }
+}
+
 if (!function_exists('peakrackKycMergeSettings')) {
     function peakrackKycMergeSettings(array $defaults, array $stored): array
     {
@@ -299,7 +384,7 @@ if (!function_exists('peakrackKycMergeSettings')) {
         if (($settings['apiProvider'] ?? '') === 'tencent_faceid') {
             $settings['apiProvider'] = 'tencent_phone_three_factor';
         }
-        $settings['apiProvider'] = in_array((string) ($settings['apiProvider'] ?? ''), ['tencent_phone_three_factor'], true)
+        $settings['apiProvider'] = in_array((string) ($settings['apiProvider'] ?? ''), peakrackKycAvailableApiProviders(), true)
             ? (string) $settings['apiProvider']
             : 'tencent_phone_three_factor';
         $settings['enforcementMode'] = in_array((string) ($settings['enforcementMode'] ?? ''), ['none', 'all', 'selected'], true)
@@ -344,8 +429,15 @@ if (!function_exists('peakrackKycMergeSettings')) {
 if (!function_exists('peakrackKycProvider')) {
     function peakrackKycProvider(string $name): ProviderInterface
     {
-        if ($name === 'manual_review') {
-            return new ManualReviewProvider();
+        $catalog = peakrackKycProviderCatalog();
+        $metadata = $catalog[$name] ?? $catalog['tencent_phone_three_factor'];
+        $class = (string) ($metadata['class'] ?? TencentPhoneThreeFactorProvider::class);
+
+        if (class_exists($class)) {
+            $provider = new $class();
+            if ($provider instanceof ProviderInterface) {
+                return $provider;
+            }
         }
 
         return new TencentPhoneThreeFactorProvider();
