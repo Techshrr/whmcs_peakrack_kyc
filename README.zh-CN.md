@@ -17,7 +17,8 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 提供后台系统检查卡片，用于检查 PHP 扩展、私有存储、防直链文件和 API 密钥准备状态。
 - 提供产品、产品组、TLD 实名规则的后台新增、编辑、启用/停用和删除。
 - 支持腾讯云 FaceID `PhoneVerification` 手机号、姓名、身份证号三要素核验。
-- 已实现 `TencentPhoneThreeFactorProvider` 和 `ManualReviewProvider`，并为 v1.1 路线预留 Provider 适配器。
+- 支持支付宝实名信息验证，流程为 OpenAPI V3 预咨询、支付宝用户授权、回调换取授权令牌、咨询核验结果。
+- 已实现 `TencentPhoneThreeFactorProvider`、`AlipayRealNameInfoProvider` 和 `ManualReviewProvider`，并为后续 v1.1 路线预留 Provider 适配器。
 - 支持个人、企业、海外护照、地址证明、营业执照、水电费账单等人工上传审核场景。
 - 可在下单前拦截未实名客户，也可允许先下单但禁止自动开通。
 - 实名驳回后可选择人工处理，或自动取消未付款 Pending 订单。
@@ -33,7 +34,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 范围说明
 
-`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，用于后续接入支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API。预留 Provider 会显示在后台，但在真实核验逻辑完成前不能选择启用。
+`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，并已接入支付宝实名信息验证。支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API 仍为预留 Provider，在真实核验逻辑完成前不能选择启用。
 
 ## 安装
 
@@ -66,6 +67,24 @@ Addons > PeakRack KYC
 - `仅指定产品`：只对后台规则中配置的产品、产品组或 TLD 强制实名。
 
 规则在后台 **Product / Product Group / TLD Rules** 区域维护。开启下单前拦截时，`ShoppingCartValidateCheckout` 会在生成订单和账单前阻止未实名客户下单。允许先下单模式下，订单可以保持 Pending，但 `PreModuleCreate` 仍会阻止服务自动开通。
+
+## API Provider
+
+### 腾讯云三要素
+
+用于腾讯云 `PhoneVerification`。需要配置 `Tencent SecretId`、`Tencent SecretKey`、Region、Endpoint 和 VerifyMode。
+
+### 支付宝实名信息验证
+
+用于支付宝实名信息比对。客户提交姓名和中国大陆身份证号码后，插件先调用 `preconsult` 获取 `verify_id`，再跳转支付宝授权；支付宝回调后，插件用 `auth_code` 换取 `access_token` 并调用 `consult`，根据结果自动标记通过或驳回。
+
+需要配置：
+
+- `Alipay AppID`
+- `Alipay app private key`
+- `Alipay OpenAPI base URL`，默认 `https://openapi.alipay.com`
+- `Alipay authorization URL`，默认 `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm`
+- 将后台显示的回调地址加入支付宝应用授权回调白名单
 
 ## 文件安全
 
@@ -108,6 +127,8 @@ attachments/peakrack_kyc_private/
 - 在 WHMCS 9.0.3、PHP 8.2 / 8.3 下启用插件。
 - 保存设置时 SecretKey 留空，确认已保存密钥保留且页面不回显。
 - 使用测试模式提交腾讯云三要素核验。
+- 使用测试模式提交支付宝实名信息验证。
+- 在支付宝测试应用中配置授权回调白名单，实测 `preconsult -> 授权回调 -> token exchange -> consult`。
 - 提交 JPG、PNG、PDF 人工实名材料。
 - 确认扩展名、MIME 和文件头不匹配的文件会被拒绝。
 - 后台执行通过、驳回、撤销、要求重新提交。

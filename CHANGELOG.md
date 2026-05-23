@@ -11,6 +11,7 @@
 - Expanded default WHMCS KYC customer email templates with bilingual content, profile metadata, status fields, reason fields, and KYC center links.
 - Added a safe refresh option for bundled PeakRack email templates so existing templates are only overwritten when the administrator opts in.
 - Added a manual retention-cleanup button in the admin UI.
+- Added `AlipayRealNameInfoProvider` with OpenAPI V3 preconsult, OAuth callback, token exchange, consult result handling, admin settings, system checks, and client-area submission flow.
 
 ## 1.0.0 - 2026-05-22
 

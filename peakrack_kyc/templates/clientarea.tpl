@@ -66,6 +66,36 @@
     </div>
 {/if}
 
+{if $prkyc.settings.alipayRealNameEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.alipay_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <p class="small text-muted">{$prkyc.text.alipay_help|escape}</p>
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="alipay_real_name_start">
+                <div class="row">
+                    <div class="col-md-4 form-group mb-3">
+                        <label for="prkyc-real-name-alipay">{$prkyc.text.real_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-real-name-alipay" name="real_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-4 form-group mb-3">
+                        <label for="prkyc-id-number-alipay">{$prkyc.text.id_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-id-number-alipay" name="id_number" autocomplete="off" required>
+                    </div>
+                    <div class="col-md-4 form-group mb-3">
+                        <label for="prkyc-phone-alipay">{$prkyc.text.phone|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-phone-alipay" name="phone" autocomplete="tel">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_alipay|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
 {if $prkyc.settings.manualReviewEnabled}
     <div class="panel panel-default card mb-3">
         <div class="panel-heading card-header">

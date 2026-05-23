@@ -8,6 +8,7 @@
 
 use WHMCS\Database\Capsule;
 use PeakRack\Kyc\Providers\AlipayFaceProvider;
+use PeakRack\Kyc\Providers\AlipayRealNameInfoProvider;
 use PeakRack\Kyc\Providers\BankCardProvider;
 use PeakRack\Kyc\Providers\CompanyVerificationProvider;
 use PeakRack\Kyc\Providers\ManualReviewProvider;
@@ -23,6 +24,7 @@ require_once __DIR__ . '/Providers/ProviderInterface.php';
 require_once __DIR__ . '/Providers/ReservedProvider.php';
 require_once __DIR__ . '/Providers/TencentPhoneThreeFactorProvider.php';
 require_once __DIR__ . '/Providers/ManualReviewProvider.php';
+require_once __DIR__ . '/Providers/AlipayRealNameInfoProvider.php';
 require_once __DIR__ . '/Providers/AlipayFaceProvider.php';
 require_once __DIR__ . '/Providers/BankCardProvider.php';
 require_once __DIR__ . '/Providers/CompanyVerificationProvider.php';
@@ -57,6 +59,14 @@ if (!function_exists('peakrackKycDefaults')) {
             'tencentVerifyMode' => 'standard',
             'apiTestMode' => false,
             'apiTimeout' => 15,
+            'alipayRealNameEnabled' => false,
+            'alipayAppId' => '',
+            'alipayPrivateKey' => '',
+            'alipayApiBaseUrl' => 'https://openapi.alipay.com',
+            'alipayAuthUrl' => 'https://openauth.alipay.com/oauth2/publicAppAuthorize.htm',
+            'alipayOauthScope' => 'auth_base',
+            'alipayAuthSource' => 'alipay_wallet',
+            'alipayCertType' => 'IDENTITY_CARD',
             'enforcementMode' => 'selected',
             'checkoutMode' => 'block',
             'enforcedProductIds' => [],
@@ -313,6 +323,15 @@ if (!function_exists('peakrackKycProviderCatalog')) {
                 'selectable' => false,
                 'description_key' => 'provider_manual_desc',
             ],
+            'alipay_real_name_info' => [
+                'code' => 'alipay_real_name_info',
+                'class' => AlipayRealNameInfoProvider::class,
+                'label' => 'AlipayRealNameInfoProvider',
+                'kind' => 'oauth',
+                'status' => 'available',
+                'selectable' => false,
+                'description_key' => 'provider_alipay_real_name_desc',
+            ],
             'alipay_face' => [
                 'code' => 'alipay_face',
                 'class' => AlipayFaceProvider::class,
@@ -375,6 +394,7 @@ if (!function_exists('peakrackKycMergeSettings')) {
         $settings['activityLog'] = peakrackKycBool($settings['activityLog'] ?? $defaults['activityLog']);
         $settings['manualReviewEnabled'] = peakrackKycBool($settings['manualReviewEnabled'] ?? $defaults['manualReviewEnabled']);
         $settings['apiVerificationEnabled'] = peakrackKycBool($settings['apiVerificationEnabled'] ?? $defaults['apiVerificationEnabled']);
+        $settings['alipayRealNameEnabled'] = peakrackKycBool($settings['alipayRealNameEnabled'] ?? $defaults['alipayRealNameEnabled']);
         $settings['checkoutBlockEnabled'] = peakrackKycBool($settings['checkoutBlockEnabled'] ?? $defaults['checkoutBlockEnabled']);
         $settings['provisioningBlockEnabled'] = peakrackKycBool($settings['provisioningBlockEnabled'] ?? $defaults['provisioningBlockEnabled']);
         $settings['postOrderHoldEnabled'] = peakrackKycBool($settings['postOrderHoldEnabled'] ?? $defaults['postOrderHoldEnabled']);
@@ -408,12 +428,27 @@ if (!function_exists('peakrackKycMergeSettings')) {
         $settings['emailNotifications'] = peakrackKycBool($settings['emailNotifications'] ?? $defaults['emailNotifications']);
         $settings['adminEmailNotifications'] = peakrackKycBool($settings['adminEmailNotifications'] ?? $defaults['adminEmailNotifications']);
 
-        foreach (['tencentSecretId', 'tencentSecretKey', 'tencentRegion', 'tencentEndpoint', 'tencentVerifyMode', 'storagePath', 'emailTemplateSubmitted', 'emailTemplateApproved', 'emailTemplateRejected'] as $key) {
+        foreach (['tencentSecretId', 'tencentSecretKey', 'tencentRegion', 'tencentEndpoint', 'tencentVerifyMode', 'alipayAppId', 'alipayPrivateKey', 'alipayApiBaseUrl', 'alipayAuthUrl', 'alipayOauthScope', 'alipayAuthSource', 'alipayCertType', 'storagePath', 'emailTemplateSubmitted', 'emailTemplateApproved', 'emailTemplateRejected'] as $key) {
             $settings[$key] = trim((string) ($settings[$key] ?? ''));
         }
 
         if ($settings['tencentEndpoint'] === '') {
             $settings['tencentEndpoint'] = $defaults['tencentEndpoint'];
+        }
+        if ($settings['alipayApiBaseUrl'] === '') {
+            $settings['alipayApiBaseUrl'] = $defaults['alipayApiBaseUrl'];
+        }
+        if ($settings['alipayAuthUrl'] === '') {
+            $settings['alipayAuthUrl'] = $defaults['alipayAuthUrl'];
+        }
+        if ($settings['alipayOauthScope'] === '') {
+            $settings['alipayOauthScope'] = $defaults['alipayOauthScope'];
+        }
+        if ($settings['alipayAuthSource'] === '') {
+            $settings['alipayAuthSource'] = $defaults['alipayAuthSource'];
+        }
+        if ($settings['alipayCertType'] === '') {
+            $settings['alipayCertType'] = $defaults['alipayCertType'];
         }
 
         foreach (['en', 'zh'] as $language) {
@@ -1203,6 +1238,319 @@ if (!function_exists('peakrackKycHttpPost')) {
         }
 
         return ['success' => true, 'message' => 'OK', 'body' => $body];
+    }
+}
+
+if (!function_exists('peakrackKycHttpRequest')) {
+    function peakrackKycHttpRequest(string $method, string $url, string $payload, array $headers, int $timeout): array
+    {
+        if (!function_exists('curl_init')) {
+            return ['success' => false, 'message' => 'PHP cURL extension is not available.', 'body' => '', 'headers' => [], 'status' => 0];
+        }
+
+        $method = strtoupper($method);
+        $ch = curl_init($url);
+        $options = [
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER => true,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_TIMEOUT => $timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+        if ($method === 'POST') {
+            $options[CURLOPT_POST] = true;
+            $options[CURLOPT_POSTFIELDS] = $payload;
+        } elseif ($method !== 'GET') {
+            $options[CURLOPT_CUSTOMREQUEST] = $method;
+            if ($payload !== '') {
+                $options[CURLOPT_POSTFIELDS] = $payload;
+            }
+        }
+        curl_setopt_array($ch, $options);
+
+        $raw = curl_exec($ch);
+        $error = curl_error($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $headerSize = (int) curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        curl_close($ch);
+
+        if (!is_string($raw)) {
+            return ['success' => false, 'message' => $error !== '' ? $error : 'Empty HTTP response.', 'body' => '', 'headers' => [], 'status' => $status];
+        }
+
+        $headerText = substr($raw, 0, $headerSize);
+        $body = substr($raw, $headerSize);
+        $responseHeaders = [];
+        foreach (preg_split('/\r\n|\r|\n/', (string) $headerText) as $line) {
+            if (!str_contains($line, ':')) {
+                continue;
+            }
+            [$name, $value] = explode(':', $line, 2);
+            $responseHeaders[strtolower(trim($name))] = trim($value);
+        }
+
+        if ($status < 200 || $status >= 300) {
+            return ['success' => false, 'message' => 'HTTP ' . $status, 'body' => $body, 'headers' => $responseHeaders, 'status' => $status];
+        }
+
+        return ['success' => true, 'message' => 'OK', 'body' => $body, 'headers' => $responseHeaders, 'status' => $status];
+    }
+}
+
+if (!function_exists('peakrackKycAlipayCertdocPreconsult')) {
+    function peakrackKycAlipayCertdocPreconsult(int $clientId, string $realName, string $idNumber, string $phone, array $settings): array
+    {
+        $payload = [
+            'user_name' => $realName,
+            'cert_type' => (string) ($settings['alipayCertType'] ?? 'IDENTITY_CARD'),
+            'cert_no' => $idNumber,
+        ];
+        if ($phone !== '') {
+            $payload['mobile'] = $phone;
+        }
+
+        $result = peakrackKycAlipayV3Request('POST', '/v3/alipay/user/certdoc/certverify/preconsult', $payload, $settings);
+        $node = peakrackKycAlipayResponseNode($result['json'] ?? [], 'alipay_user_certdoc_certverify_preconsult_response');
+        $code = (string) ($node['code'] ?? ($result['code'] ?? ''));
+        $message = peakrackKycAlipayResultMessage($node, $result);
+        $verifyId = (string) ($node['verify_id'] ?? ($result['json']['verify_id'] ?? ''));
+        $requestId = (string) ($result['request_id'] ?? '');
+        $success = !empty($result['success']) && ($code === '' || $code === '10000') && $verifyId !== '';
+
+        peakrackKycRecordApiAttempt($clientId, 'alipay_real_name_info', $success ? 'passed' : 'failed', $code !== '' ? $code : ($success ? '10000' : 'preconsult_failed'), $requestId, [
+            'description' => $message,
+            'request_id' => $requestId,
+            'verify_id' => $verifyId,
+            'code' => $code,
+        ]);
+
+        return [
+            'success' => $success,
+            'code' => $code !== '' ? $code : ($success ? '10000' : 'preconsult_failed'),
+            'message' => $message !== '' ? $message : ($success ? 'Alipay preconsult succeeded.' : 'Alipay preconsult failed.'),
+            'request_id' => $requestId,
+            'verify_id' => $verifyId,
+            'raw' => $result['json'] ?? [],
+        ];
+    }
+
+    function peakrackKycAlipayOauthToken(int $clientId, string $authCode, array $settings): array
+    {
+        $payload = [
+            'grant_type' => 'authorization_code',
+            'code' => $authCode,
+        ];
+
+        $result = peakrackKycAlipayV3Request('POST', '/v3/alipay/system/oauth/token', $payload, $settings);
+        $node = peakrackKycAlipayResponseNode($result['json'] ?? [], 'alipay_system_oauth_token_response');
+        $accessToken = (string) ($node['access_token'] ?? ($result['json']['access_token'] ?? ''));
+        $requestId = (string) ($result['request_id'] ?? '');
+        $code = (string) ($node['code'] ?? ($result['code'] ?? ''));
+        $message = peakrackKycAlipayResultMessage($node, $result);
+        $success = !empty($result['success']) && $accessToken !== '';
+
+        peakrackKycRecordApiAttempt($clientId, 'alipay_real_name_info', $success ? 'passed' : 'failed', $code !== '' ? $code : ($success ? '10000' : 'oauth_token_failed'), $requestId, [
+            'description' => $message !== '' ? $message : ($success ? 'OAuth token exchanged.' : 'OAuth token exchange failed.'),
+            'request_id' => $requestId,
+            'open_id' => (string) ($node['open_id'] ?? ''),
+            'user_id' => (string) ($node['user_id'] ?? ''),
+        ]);
+
+        return [
+            'success' => $success,
+            'code' => $code !== '' ? $code : ($success ? '10000' : 'oauth_token_failed'),
+            'message' => $message !== '' ? $message : ($success ? 'OAuth token exchanged.' : 'Unable to exchange Alipay authorization code.'),
+            'request_id' => $requestId,
+            'access_token' => $accessToken,
+            'open_id' => (string) ($node['open_id'] ?? ''),
+            'user_id' => (string) ($node['user_id'] ?? ''),
+            'raw' => $result['json'] ?? [],
+        ];
+    }
+
+    function peakrackKycAlipayCertdocConsult(int $clientId, string $verifyId, string $authToken, array $settings): array
+    {
+        if ($verifyId === '' || $authToken === '') {
+            return ['success' => false, 'code' => 'missing_parameters', 'message' => 'Alipay verify_id or auth token is missing.'];
+        }
+
+        $result = peakrackKycAlipayV3Request('GET', '/v3/alipay/user/certdoc/certverify/consult', [], $settings, [
+            'auth_token' => $authToken,
+            'verify_id' => $verifyId,
+        ]);
+        $node = peakrackKycAlipayResponseNode($result['json'] ?? [], 'alipay_user_certdoc_certverify_consult_response');
+        $passed = strtoupper((string) ($node['passed'] ?? ($result['json']['passed'] ?? '')));
+        $code = (string) ($node['code'] ?? ($result['code'] ?? ''));
+        $requestId = (string) ($result['request_id'] ?? '');
+        $message = peakrackKycAlipayResultMessage($node, $result);
+        if ($message === '' && (string) ($node['fail_reason'] ?? '') !== '') {
+            $message = (string) $node['fail_reason'];
+        }
+        $success = !empty($result['success']) && ($code === '' || $code === '10000') && in_array($passed, ['T', 'Y', 'TRUE', 'PASS', 'PASSED', 'SUCCESS', '1'], true);
+
+        peakrackKycRecordApiAttempt($clientId, 'alipay_real_name_info', $success ? 'passed' : 'failed', $code !== '' ? $code : ($success ? '10000' : 'not_passed'), $requestId, [
+            'description' => $message !== '' ? $message : ($success ? 'Alipay real-name information matched.' : 'Alipay real-name information did not match.'),
+            'request_id' => $requestId,
+            'passed' => $passed,
+            'fail_reason' => (string) ($node['fail_reason'] ?? ''),
+        ]);
+
+        return [
+            'success' => $success,
+            'code' => $code !== '' ? $code : ($success ? '10000' : 'not_passed'),
+            'message' => $message !== '' ? $message : ($success ? 'Alipay real-name information matched.' : 'Alipay real-name information did not match.'),
+            'request_id' => $requestId,
+            'passed' => $passed,
+            'raw' => $result['json'] ?? [],
+        ];
+    }
+
+    function peakrackKycAlipayAuthUrl(string $state, array $settings): string
+    {
+        $callbackUrl = peakrackKycAlipayCallbackUrl();
+        $params = [
+            'app_id' => (string) ($settings['alipayAppId'] ?? ''),
+            'scope' => (string) ($settings['alipayOauthScope'] ?? 'auth_base'),
+            'redirect_uri' => $callbackUrl,
+            'state' => $state,
+        ];
+        $source = trim((string) ($settings['alipayAuthSource'] ?? 'alipay_wallet'));
+        if ($source !== '') {
+            $params['source'] = $source;
+        }
+
+        return rtrim((string) ($settings['alipayAuthUrl'] ?? ''), '?') . '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    }
+
+    function peakrackKycAlipayCallbackUrl(): string
+    {
+        return peakrackKycSystemUrl() . '/index.php?m=peakrack_kyc&prkyc_client_action=alipay_real_name_callback';
+    }
+
+    function peakrackKycAlipayV3Request(string $method, string $path, array $payload, array $settings, array $query = []): array
+    {
+        $appId = trim((string) ($settings['alipayAppId'] ?? ''));
+        $privateKey = peakrackKycAlipayNormalizePrivateKey((string) ($settings['alipayPrivateKey'] ?? ''));
+        if ($appId === '' || $privateKey === '') {
+            return ['success' => false, 'code' => 'missing_credentials', 'message' => 'Alipay AppID or private key is missing.', 'json' => []];
+        }
+
+        $method = strtoupper($method);
+        $pathWithQuery = $path;
+        if (!empty($query)) {
+            $pathWithQuery .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        }
+        $body = $method === 'GET' ? '' : peakrackKycJsonEncode($payload);
+        $requestId = substr(bin2hex(random_bytes(16)), 0, 32);
+        $nonce = bin2hex(random_bytes(16));
+        $timestamp = (string) round(microtime(true) * 1000);
+        $authString = 'app_id=' . $appId . ',nonce=' . $nonce . ',timestamp=' . $timestamp;
+        $stringToSignParts = [$authString, $method, $pathWithQuery];
+        if ($body !== '') {
+            $stringToSignParts[] = $body;
+        }
+        $stringToSign = implode("\n", $stringToSignParts) . "\n";
+
+        $signature = '';
+        $key = openssl_pkey_get_private($privateKey);
+        if (!$key || !openssl_sign($stringToSign, $signature, $key, OPENSSL_ALGO_SHA256)) {
+            return ['success' => false, 'code' => 'sign_failed', 'message' => 'Unable to sign Alipay request.', 'json' => []];
+        }
+
+        $authorization = 'ALIPAY-SHA256withRSA ' . $authString . ',sign=' . base64_encode($signature);
+        $headers = [
+            'Authorization: ' . $authorization,
+            'Accept: application/json',
+            'Content-Type: application/json; charset=UTF-8',
+            'alipay-request-id: ' . $requestId,
+        ];
+
+        $url = peakrackKycAlipayApiBaseUrl($settings) . $pathWithQuery;
+        $response = peakrackKycHttpRequest($method, $url, $body, $headers, (int) ($settings['apiTimeout'] ?? 15));
+        $decoded = peakrackKycJsonDecode((string) ($response['body'] ?? ''), []);
+        $responseHeaders = is_array($response['headers'] ?? null) ? $response['headers'] : [];
+        $traceId = (string) ($responseHeaders['alipay-traceid'] ?? $requestId);
+
+        if (empty($response['success'])) {
+            $message = (string) ($decoded['message'] ?? ($decoded['msg'] ?? ($response['message'] ?? 'Alipay API request failed.')));
+            return [
+                'success' => false,
+                'code' => (string) ($decoded['code'] ?? 'transport_error'),
+                'message' => $message,
+                'request_id' => $traceId,
+                'json' => $decoded,
+                'status' => (int) ($response['status'] ?? 0),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'code' => (string) ($decoded['code'] ?? '10000'),
+            'message' => (string) ($decoded['message'] ?? ($decoded['msg'] ?? 'OK')),
+            'request_id' => $traceId,
+            'json' => $decoded,
+            'status' => (int) ($response['status'] ?? 200),
+        ];
+    }
+
+    function peakrackKycAlipayApiBaseUrl(array $settings): string
+    {
+        $base = rtrim(trim((string) ($settings['alipayApiBaseUrl'] ?? 'https://openapi.alipay.com')), '/');
+        if ($base === '') {
+            $base = 'https://openapi.alipay.com';
+        }
+        if (str_ends_with($base, '/v3')) {
+            $base = substr($base, 0, -3);
+        }
+
+        return rtrim($base, '/');
+    }
+
+    function peakrackKycAlipayNormalizePrivateKey(string $privateKey): string
+    {
+        $privateKey = trim(str_replace('\\n', "\n", $privateKey));
+        if ($privateKey === '') {
+            return '';
+        }
+        if (str_contains($privateKey, '-----BEGIN')) {
+            return $privateKey;
+        }
+
+        $compact = preg_replace('/\s+/', '', $privateKey);
+        return "-----BEGIN PRIVATE KEY-----\n" . chunk_split((string) $compact, 64, "\n") . "-----END PRIVATE KEY-----";
+    }
+
+    function peakrackKycAlipayResponseNode(array $json, string $wrapper): array
+    {
+        if (isset($json[$wrapper]) && is_array($json[$wrapper])) {
+            return $json[$wrapper];
+        }
+        if (isset($json['response']) && is_array($json['response'])) {
+            return $json['response'];
+        }
+        if (isset($json['error_response']) && is_array($json['error_response'])) {
+            return $json['error_response'];
+        }
+
+        return $json;
+    }
+
+    function peakrackKycAlipayResultMessage(array $node, array $result): string
+    {
+        foreach (['sub_msg', 'message', 'msg', 'fail_reason'] as $key) {
+            if (isset($node[$key]) && is_scalar($node[$key]) && trim((string) $node[$key]) !== '') {
+                return trim((string) $node[$key]);
+            }
+        }
+        foreach (['message', 'msg'] as $key) {
+            if (isset($result[$key]) && is_scalar($result[$key]) && trim((string) $result[$key]) !== '') {
+                return trim((string) $result[$key]);
+            }
+        }
+
+        return '';
     }
 }
 
@@ -2173,6 +2521,12 @@ if (!function_exists('peakrackKycSystemChecks')) {
                 'status' => empty($settings['apiVerificationEnabled']) || ((string) ($settings['tencentSecretId'] ?? '') !== '' && (string) ($settings['tencentSecretKey'] ?? '') !== '') ? 'ok' : 'warn',
                 'message' => empty($settings['apiVerificationEnabled']) ? 'API verification is disabled.' : 'Tencent credentials are required when API verification is enabled.',
             ],
+            [
+                'key' => 'alipay_credentials',
+                'label_key' => 'check_alipay_credentials',
+                'status' => empty($settings['alipayRealNameEnabled']) || ((string) ($settings['alipayAppId'] ?? '') !== '' && (string) ($settings['alipayPrivateKey'] ?? '') !== '') ? 'ok' : 'warn',
+                'message' => empty($settings['alipayRealNameEnabled']) ? 'Alipay real-name verification is disabled.' : 'Alipay AppID and private key are required when Alipay verification is enabled.',
+            ],
         ];
 
         return $checks;
@@ -2805,7 +3159,7 @@ if (!function_exists('peakrackKycRedactApiResponse')) {
         $redacted = [];
         foreach ($data as $key => $value) {
             $normalized = strtolower((string) $key);
-            if (preg_match('/(idcard|id_card|phone|mobile|name|cert|cardno|bank)/', $normalized)) {
+            if (preg_match('/(idcard|id_card|phone|mobile|name|cert|cardno|bank|token|auth|sign|key|secret)/', $normalized)) {
                 $redacted[$key] = '[REDACTED]';
                 continue;
             }
