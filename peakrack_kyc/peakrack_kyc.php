@@ -170,6 +170,11 @@ function peakrack_kyc_clientarea(array $vars): array
         $message = $result['message'];
         $messageType = $result['success'] ? 'success' : 'danger';
     }
+    if ($clientId > 0 && (string) ($_GET['prkyc_client_action'] ?? '') === 'alipay_face_callback') {
+        $result = peakrack_kyc_handle_alipay_face_callback($clientId, $settings);
+        $message = $result['message'];
+        $messageType = $result['success'] ? 'success' : 'danger';
+    }
 
     if ($clientId > 0 && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if (!peakrack_kyc_verify_client_token()) {
@@ -181,8 +186,28 @@ function peakrack_kyc_clientarea(array $vars): array
                 $result = peakrack_kyc_handle_api_submission($clientId, $settings);
                 $message = $result['message'];
                 $messageType = $result['success'] ? 'success' : 'danger';
+            } elseif ($action === 'bank_card_verify') {
+                $result = peakrack_kyc_handle_bank_card_submission($clientId, $settings);
+                $message = $result['message'];
+                $messageType = $result['success'] ? 'success' : 'danger';
+            } elseif ($action === 'company_verify') {
+                $result = peakrack_kyc_handle_company_submission($clientId, $settings);
+                $message = $result['message'];
+                $messageType = $result['success'] ? 'success' : 'danger';
+            } elseif ($action === 'overseas_kyc_verify') {
+                $result = peakrack_kyc_handle_overseas_kyc_submission($clientId, $settings);
+                $message = $result['message'];
+                $messageType = $result['success'] ? 'success' : 'danger';
             } elseif ($action === 'alipay_real_name_start') {
                 $result = peakrack_kyc_handle_alipay_real_name_start($clientId, $settings);
+                if (!empty($result['redirect_url'])) {
+                    header('Location: ' . (string) $result['redirect_url']);
+                    exit;
+                }
+                $message = $result['message'];
+                $messageType = $result['success'] ? 'success' : 'danger';
+            } elseif ($action === 'alipay_face_start') {
+                $result = peakrack_kyc_handle_alipay_face_start($clientId, $settings);
                 if (!empty($result['redirect_url'])) {
                     header('Location: ' . (string) $result['redirect_url']);
                     exit;
@@ -221,6 +246,14 @@ function peakrack_kyc_clientarea(array $vars): array
                     'manualReviewEnabled' => $settings['manualReviewEnabled'],
                     'apiVerificationEnabled' => $settings['apiVerificationEnabled'],
                     'alipayRealNameEnabled' => $settings['alipayRealNameEnabled'],
+                    'alipayFaceEnabled' => $settings['alipayFaceEnabled'],
+                    'bankCardEnabled' => $settings['bankCardEnabled'],
+                    'companyVerificationEnabled' => $settings['companyVerificationEnabled'],
+                    'legalFaceEnabled' => $settings['legalFaceEnabled'],
+                    'overseasKycEnabled' => $settings['overseasKycEnabled'],
+                    'apiProvider' => (string) $settings['apiProvider'],
+                    'bankCardFactorMode' => (string) $settings['bankCardFactorMode'],
+                    'companyFactorMode' => (string) $settings['companyFactorMode'],
                     'allowedExtensions' => implode(', ', $settings['allowedExtensions']),
                     'maxUploadMb' => (int) $settings['maxUploadMb'],
                     'notice' => $settings['clientNotice'][$language],
@@ -242,18 +275,30 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
     $realName = trim((string) ($_POST['real_name'] ?? ''));
     $idNumber = trim((string) ($_POST['id_number'] ?? ''));
     $phone = trim((string) ($_POST['phone'] ?? ''));
+    $bankCard = trim((string) ($_POST['bank_card'] ?? ''));
     $language = peakrackKycClientLanguage($clientId);
 
-    if ($realName === '' || $idNumber === '' || $phone === '') {
+    $isBankCardProvider = (string) ($settings['apiProvider'] ?? '') === 'bank_card_multi_factor';
+    if ($realName === '' || $idNumber === '' || (!$isBankCardProvider && $phone === '') || ($isBankCardProvider && ($bankCard === '' || ((string) ($settings['bankCardFactorMode'] ?? '4') === '4' && $phone === '')))) {
         return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名、身份证号码和手机号。' : 'Name, ID number, and phone number are required.'];
     }
 
-    $result = peakrackKycApiVerifyThreeFactor($clientId, $realName, $idNumber, $phone, $settings);
+    if ($isBankCardProvider) {
+        $result = peakrackKycProvider('bank_card_multi_factor')->verify([
+            'client_id' => $clientId,
+            'real_name' => $realName,
+            'id_number' => $idNumber,
+            'phone' => $phone,
+            'bank_card' => $bankCard,
+        ], $settings);
+    } else {
+        $result = peakrackKycApiVerifyThreeFactor($clientId, $realName, $idNumber, $phone, $settings);
+    }
     if ($result['success']) {
         $profileId = peakrackKycUpsertProfile($clientId, [
             'type' => 'individual',
             'status' => 'verified',
-            'verification_method' => 'api_three_factor',
+            'verification_method' => (string) ($settings['apiProvider'] ?? 'api_three_factor'),
             'real_name' => $realName,
             'id_number' => $idNumber,
             'phone' => $phone,
@@ -265,6 +310,7 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
             'real_name' => $realName,
             'id_number' => $idNumber,
             'phone' => $phone,
+            'bank_card' => $bankCard,
         ], $result);
         peakrackKycLog('info', 'Client passed API three-factor KYC', $clientId, 0, ['code' => (string) ($result['code'] ?? '')]);
         peakrackKycSendClientNotification($clientId, 'verified', ['profile_id' => $profileId], $settings);
@@ -274,7 +320,7 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
     $profileId = peakrackKycUpsertProfile($clientId, [
         'type' => 'individual',
         'status' => 'rejected',
-        'verification_method' => 'api_three_factor',
+        'verification_method' => (string) ($settings['apiProvider'] ?? 'api_three_factor'),
         'real_name' => $realName,
         'id_number' => $idNumber,
         'phone' => $phone,
@@ -287,6 +333,7 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
         'real_name' => $realName,
         'id_number' => $idNumber,
         'phone' => $phone,
+        'bank_card' => $bankCard,
     ], $result);
     peakrackKycLog('warning', 'Client failed API three-factor KYC', $clientId, 0, ['code' => (string) ($result['code'] ?? '')]);
 
@@ -296,6 +343,183 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
         : (string) ($result['message'] ?? '');
 
     return ['success' => false, 'message' => peakrackKycText($language, 'api_failed') . ' ' . $clientMessage];
+}
+
+function peakrack_kyc_handle_bank_card_submission(int $clientId, array $settings): array
+{
+    $language = peakrackKycClientLanguage($clientId);
+    if (empty($settings['bankCardEnabled'])) {
+        return ['success' => false, 'message' => $language === 'zh' ? '银行卡多要素认证暂未启用。' : 'Bank-card verification is not enabled.'];
+    }
+
+    $realName = trim((string) ($_POST['real_name'] ?? ''));
+    $idNumber = trim((string) ($_POST['id_number'] ?? ''));
+    $phone = trim((string) ($_POST['phone'] ?? ''));
+    $bankCard = trim((string) ($_POST['bank_card'] ?? ''));
+    if ($realName === '' || $idNumber === '' || $bankCard === '' || ((string) ($settings['bankCardFactorMode'] ?? '4') === '4' && $phone === '')) {
+        return ['success' => false, 'message' => $language === 'zh' ? '请填写银行卡核验所需的全部要素。' : 'Please complete all required bank-card verification fields.'];
+    }
+
+    if (!empty($settings['apiTestMode'])) {
+        $result = ['success' => true, 'code' => 'test_mode', 'message' => 'Test mode verification passed.', 'request_id' => 'test-mode'];
+    } else {
+        $result = peakrackKycProvider('bank_card_multi_factor')->verify([
+            'client_id' => $clientId,
+            'real_name' => $realName,
+            'id_number' => $idNumber,
+            'phone' => $phone,
+            'bank_card' => $bankCard,
+        ], $settings);
+    }
+
+    $success = !empty($result['success']);
+    $profileId = peakrackKycUpsertProfile($clientId, [
+        'type' => 'individual',
+        'status' => $success ? 'verified' : 'rejected',
+        'verification_method' => 'bank_card_multi_factor',
+        'real_name' => $realName,
+        'id_number' => $idNumber,
+        'phone' => $phone,
+        'document_type' => 'bank_card',
+        'country' => 'CN',
+        'notes' => 'Bank-card factor mode: ' . (string) ($settings['bankCardFactorMode'] ?? '4'),
+        'last_error' => $success ? null : (string) ($result['message'] ?? ''),
+        'rejection_reason' => $success ? null : (string) ($result['message'] ?? ''),
+    ]);
+    peakrackKycCreateSubmission($clientId, $profileId, 'individual', 'bank_card_multi_factor', $success ? 'verified' : 'rejected', [
+        'real_name' => $realName,
+        'id_number' => $idNumber,
+        'phone' => $phone,
+        'bank_card' => $bankCard,
+    ], $result);
+    peakrackKycSendClientNotification($clientId, $success ? 'verified' : 'rejected', [
+        'profile_id' => $profileId,
+        'reason' => $success ? '' : (string) ($result['message'] ?? ''),
+    ], $settings);
+
+    return [
+        'success' => $success,
+        'message' => $success
+            ? ($language === 'zh' ? '银行卡多要素认证已通过。' : 'Bank-card verification passed.')
+            : (($language === 'zh' ? '银行卡多要素认证未通过：' : 'Bank-card verification failed: ') . (string) ($result['message'] ?? '')),
+    ];
+}
+
+function peakrack_kyc_handle_company_submission(int $clientId, array $settings): array
+{
+    $language = peakrackKycClientLanguage($clientId);
+    if (empty($settings['companyVerificationEnabled'])) {
+        return ['success' => false, 'message' => $language === 'zh' ? '企业要素核验暂未启用。' : 'Company verification is not enabled.'];
+    }
+
+    $companyName = trim((string) ($_POST['company_name'] ?? ''));
+    $registrationNumber = trim((string) ($_POST['registration_number'] ?? ''));
+    $legalPersonName = trim((string) ($_POST['legal_person_name'] ?? ''));
+    $legalPersonId = trim((string) ($_POST['legal_person_id'] ?? ''));
+    if ($companyName === '' || $registrationNumber === '' || $legalPersonName === '' || $legalPersonId === '') {
+        return ['success' => false, 'message' => $language === 'zh' ? '请填写企业名称、统一社会信用代码、法人姓名和法人证件号。' : 'Company name, credit code, legal representative name, and legal representative ID are required.'];
+    }
+
+    if (!empty($settings['apiTestMode'])) {
+        $result = ['success' => true, 'code' => 'test_mode', 'message' => 'Test mode verification passed.', 'request_id' => 'test-mode'];
+    } else {
+        $result = peakrackKycProvider('company_verification')->verify([
+            'client_id' => $clientId,
+            'company_name' => $companyName,
+            'registration_number' => $registrationNumber,
+            'legal_person_name' => $legalPersonName,
+            'legal_person_id' => $legalPersonId,
+        ], $settings);
+    }
+
+    $success = !empty($result['success']);
+    $profileId = peakrackKycUpsertProfile($clientId, [
+        'type' => 'corporate',
+        'status' => $success ? 'verified' : 'rejected',
+        'verification_method' => 'company_verification',
+        'company_name' => $companyName,
+        'real_name' => $legalPersonName,
+        'id_number' => $legalPersonId,
+        'registration_number' => $registrationNumber,
+        'document_type' => 'business_license',
+        'country' => 'CN',
+        'notes' => 'Company factor mode: ' . (string) ($settings['companyFactorMode'] ?? '4'),
+        'last_error' => $success ? null : (string) ($result['message'] ?? ''),
+        'rejection_reason' => $success ? null : (string) ($result['message'] ?? ''),
+    ]);
+    peakrackKycCreateSubmission($clientId, $profileId, 'corporate', 'company_verification', $success ? 'verified' : 'rejected', [
+        'company_name' => $companyName,
+        'registration_number' => $registrationNumber,
+        'legal_person_name' => $legalPersonName,
+        'legal_person_id' => $legalPersonId,
+    ], $result);
+    peakrackKycSendClientNotification($clientId, $success ? 'verified' : 'rejected', [
+        'profile_id' => $profileId,
+        'reason' => $success ? '' : (string) ($result['message'] ?? ''),
+    ], $settings);
+
+    return [
+        'success' => $success,
+        'message' => $success
+            ? ($language === 'zh' ? '企业要素核验已通过。' : 'Company verification passed.')
+            : (($language === 'zh' ? '企业要素核验未通过：' : 'Company verification failed: ') . (string) ($result['message'] ?? '')),
+    ];
+}
+
+function peakrack_kyc_handle_overseas_kyc_submission(int $clientId, array $settings): array
+{
+    $language = peakrackKycClientLanguage($clientId);
+    if (empty($settings['overseasKycEnabled'])) {
+        return ['success' => false, 'message' => $language === 'zh' ? '海外 KYC API 暂未启用。' : 'Overseas KYC API is not enabled.'];
+    }
+
+    $realName = trim((string) ($_POST['real_name'] ?? ''));
+    $passportNumber = trim((string) ($_POST['passport_number'] ?? ''));
+    $country = strtoupper(substr(trim((string) ($_POST['country'] ?? '')), 0, 2));
+    if ($realName === '' || $passportNumber === '' || $country === '') {
+        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名、护照/证件号码和国家代码。' : 'Name, passport/document number, and country code are required.'];
+    }
+
+    if (!empty($settings['apiTestMode'])) {
+        $result = ['success' => true, 'code' => 'test_mode', 'message' => 'Test mode verification passed.', 'request_id' => 'test-mode'];
+    } else {
+        $result = peakrackKycProvider('overseas_kyc')->verify([
+            'client_id' => $clientId,
+            'real_name' => $realName,
+            'passport_number' => $passportNumber,
+            'country' => $country,
+            'document_type' => trim((string) ($_POST['document_type'] ?? 'passport')),
+        ], $settings);
+    }
+
+    $success = !empty($result['success']);
+    $profileId = peakrackKycUpsertProfile($clientId, [
+        'type' => 'overseas',
+        'status' => $success ? 'verified' : 'rejected',
+        'verification_method' => 'overseas_kyc',
+        'real_name' => $realName,
+        'id_number' => $passportNumber,
+        'document_type' => trim((string) ($_POST['document_type'] ?? 'passport')),
+        'country' => $country,
+        'last_error' => $success ? null : (string) ($result['message'] ?? ''),
+        'rejection_reason' => $success ? null : (string) ($result['message'] ?? ''),
+    ]);
+    peakrackKycCreateSubmission($clientId, $profileId, 'overseas', 'overseas_kyc', $success ? 'verified' : 'rejected', [
+        'real_name' => $realName,
+        'passport_number' => $passportNumber,
+        'country' => $country,
+    ], $result);
+    peakrackKycSendClientNotification($clientId, $success ? 'verified' : 'rejected', [
+        'profile_id' => $profileId,
+        'reason' => $success ? '' : (string) ($result['message'] ?? ''),
+    ], $settings);
+
+    return [
+        'success' => $success,
+        'message' => $success
+            ? ($language === 'zh' ? '海外 KYC API 核验已通过。' : 'Overseas KYC verification passed.')
+            : (($language === 'zh' ? '海外 KYC API 核验未通过：' : 'Overseas KYC verification failed: ') . (string) ($result['message'] ?? '')),
+    ];
 }
 
 function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settings): array
@@ -504,6 +728,192 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
     ];
 }
 
+function peakrack_kyc_handle_alipay_face_start(int $clientId, array $settings): array
+{
+    $language = peakrackKycClientLanguage($clientId);
+    $realName = trim((string) ($_POST['real_name'] ?? ''));
+    $idNumber = trim((string) ($_POST['id_number'] ?? ''));
+    $profileType = (string) ($_POST['profile_type'] ?? 'individual') === 'corporate' ? 'corporate' : 'individual';
+    $method = $profileType === 'corporate' ? 'legal_representative_face' : 'alipay_face';
+    $companyName = trim((string) ($_POST['company_name'] ?? ''));
+    $registrationNumber = trim((string) ($_POST['registration_number'] ?? ''));
+    if (($profileType === 'corporate' && empty($settings['legalFaceEnabled'])) || ($profileType !== 'corporate' && empty($settings['alipayFaceEnabled']))) {
+        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名暂未启用。' : 'Alipay face verification is not enabled.'];
+    }
+    if ($realName === '' || $idNumber === '') {
+        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名和身份证号码。' : 'Legal name and ID number are required.'];
+    }
+
+    if (!empty($settings['apiTestMode'])) {
+        $profileId = peakrackKycUpsertProfile($clientId, [
+            'type' => $profileType,
+            'status' => 'verified',
+            'verification_method' => $method,
+            'real_name' => $realName,
+            'company_name' => $companyName,
+            'id_number' => $idNumber,
+            'registration_number' => $registrationNumber,
+            'document_type' => 'cn_id_card',
+            'country' => 'CN',
+            'notes' => 'Alipay face test mode.',
+        ]);
+        peakrackKycCreateSubmission($clientId, $profileId, $profileType, $method, 'verified', [
+            'real_name' => $realName,
+            'id_number' => $idNumber,
+            'company_name' => $companyName,
+            'registration_number' => $registrationNumber,
+        ], ['success' => true, 'code' => 'test_mode']);
+        peakrackKycSendClientNotification($clientId, 'verified', ['profile_id' => $profileId], $settings);
+        return ['success' => true, 'message' => $language === 'zh' ? '测试模式：支付宝人脸实名已通过。' : 'Test mode: Alipay face verification passed.'];
+    }
+
+    $state = bin2hex(random_bytes(16));
+    $initialize = peakrackKycAlipayFaceInitialize($clientId, $realName, $idNumber, $state, $settings);
+    if (empty($initialize['success'])) {
+        return [
+            'success' => false,
+            'message' => ($language === 'zh' ? '支付宝人脸实名初始化失败：' : 'Alipay face initialization failed: ') . (string) ($initialize['message'] ?? ''),
+        ];
+    }
+
+    $certifyId = (string) ($initialize['certify_id'] ?? '');
+    $profileId = peakrackKycUpsertProfile($clientId, [
+        'type' => $profileType,
+        'status' => 'pending',
+        'verification_method' => $method,
+        'real_name' => $realName,
+        'company_name' => $companyName,
+        'id_number' => $idNumber,
+        'registration_number' => $registrationNumber,
+        'document_type' => 'cn_id_card',
+        'country' => 'CN',
+        'notes' => 'Alipay certify id: ' . $certifyId,
+    ]);
+    $submissionId = peakrackKycCreateSubmission($clientId, $profileId, $profileType, $method, 'pending', [
+        'real_name' => $realName,
+        'id_number' => $idNumber,
+        'company_name' => $companyName,
+        'registration_number' => $registrationNumber,
+        'certify_id' => $certifyId,
+    ], $initialize);
+
+    try {
+        peakrackKycStoreOauthState('alipay_face', $clientId, $profileId, $submissionId, $state, $certifyId, [
+            'request_id' => (string) ($initialize['request_id'] ?? ''),
+            'profile_id' => $profileId,
+            'submission_id' => $submissionId,
+        ]);
+    } catch (Throwable $e) {
+        peakrackKycLog('warning', 'Unable to persist Alipay face OAuth state, falling back to session', $clientId, 0, ['profile_id' => $profileId]);
+    }
+    $_SESSION['peakrack_kyc_alipay_face'][$state] = [
+        'client_id' => $clientId,
+        'profile_id' => $profileId,
+        'submission_id' => $submissionId,
+        'certify_id' => $certifyId,
+        'created_at' => time(),
+    ];
+
+    return [
+        'success' => true,
+        'message' => $language === 'zh' ? '正在跳转到支付宝人脸实名。' : 'Redirecting to Alipay face verification.',
+        'redirect_url' => peakrackKycAlipayFaceCertifyUrl($certifyId, $state, $settings),
+    ];
+}
+
+function peakrack_kyc_handle_alipay_face_callback(int $clientId, array $settings): array
+{
+    $language = peakrackKycClientLanguage($clientId);
+    $state = (string) ($_GET['state'] ?? '');
+    $stateId = 0;
+    $session = [];
+    try {
+        $storedState = peakrackKycGetOauthState('alipay_face', $clientId, $state);
+        if ($storedState) {
+            $stateId = (int) ($storedState->id ?? 0);
+            $session = [
+                'client_id' => (int) ($storedState->client_id ?? 0),
+                'profile_id' => (int) ($storedState->profile_id ?? 0),
+                'submission_id' => (int) ($storedState->submission_id ?? 0),
+                'certify_id' => (string) ($storedState->verify_id ?? ''),
+                'created_at' => strtotime((string) ($storedState->created_at ?? '')) ?: time(),
+            ];
+        }
+    } catch (Throwable $e) {
+        peakrackKycLog('warning', 'Unable to read Alipay face state, checking session fallback', $clientId);
+    }
+    if (empty($session) && is_array($_SESSION['peakrack_kyc_alipay_face'][$state] ?? null)) {
+        $session = $_SESSION['peakrack_kyc_alipay_face'][$state];
+    }
+
+    if ($state === '' || empty($session) || (int) ($session['client_id'] ?? 0) !== $clientId) {
+        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名状态已失效，请重新发起。' : 'The Alipay face verification state is invalid or expired. Please start again.'];
+    }
+
+    $result = peakrackKycProvider('alipay_face')->verify([
+        'client_id' => $clientId,
+        'certify_id' => (string) ($session['certify_id'] ?? ''),
+    ], $settings);
+
+    $profileId = (int) ($session['profile_id'] ?? 0);
+    $submissionId = (int) ($session['submission_id'] ?? 0);
+    $now = date('Y-m-d H:i:s');
+    $success = !empty($result['success']);
+    $status = $success ? 'verified' : 'rejected';
+    $message = (string) ($result['message'] ?? '');
+    $method = 'alipay_face';
+    try {
+        $profile = Capsule::table(PRKYC_PROFILES_TABLE)->where('id', $profileId)->where('client_id', $clientId)->first();
+        if ((string) ($profile->type ?? '') === 'corporate') {
+            $method = 'legal_representative_face';
+        }
+    } catch (Throwable $e) {
+        $method = 'alipay_face';
+    }
+
+    Capsule::table(PRKYC_PROFILES_TABLE)
+        ->where('id', $profileId)
+        ->where('client_id', $clientId)
+        ->update([
+            'status' => $status,
+            'verification_method' => $method,
+            'last_error' => $success ? null : $message,
+            'rejection_reason' => $success ? null : $message,
+            'verified_at' => $success ? $now : null,
+            'reviewed_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+    if ($submissionId > 0) {
+        Capsule::table(PRKYC_SUBMISSIONS_TABLE)
+            ->where('id', $submissionId)
+            ->where('client_id', $clientId)
+            ->update([
+                'status' => $status,
+                'result_json' => peakrackKycJsonEncode(peakrackKycRedactApiResponse($result)),
+                'reviewed_at' => $now,
+                'rejection_reason' => $success ? null : $message,
+                'updated_at' => $now,
+            ]);
+    }
+
+    unset($_SESSION['peakrack_kyc_alipay_face'][$state]);
+    if ($stateId > 0) {
+        peakrackKycConsumeOauthState($stateId);
+    }
+    peakrackKycSendClientNotification($clientId, $success ? 'verified' : 'rejected', [
+        'profile_id' => $profileId,
+        'reason' => $success ? '' : $message,
+    ], $settings);
+
+    return [
+        'success' => $success,
+        'message' => $success
+            ? ($language === 'zh' ? '支付宝人脸实名已通过。' : 'Alipay face verification passed.')
+            : (($language === 'zh' ? '支付宝人脸实名未通过：' : 'Alipay face verification failed: ') . $message),
+    ];
+}
+
 function peakrack_kyc_handle_manual_submission(int $clientId, array $settings): array
 {
     $language = peakrackKycClientLanguage($clientId);
@@ -596,9 +1006,12 @@ function peakrack_kyc_settings_from_post(array $current): array
     $settings['tencentRegion'] = trim((string) ($_POST['tencentRegion'] ?? ''));
     $settings['tencentEndpoint'] = trim((string) ($_POST['tencentEndpoint'] ?? ''));
     $settings['tencentVerifyMode'] = trim((string) ($_POST['tencentVerifyMode'] ?? 'standard'));
+    $settings['tencentOcrEndpoint'] = trim((string) ($_POST['tencentOcrEndpoint'] ?? ''));
+    $settings['tencentOcrRegion'] = trim((string) ($_POST['tencentOcrRegion'] ?? ''));
     $settings['apiTestMode'] = peakrackKycBool($_POST['apiTestMode'] ?? false);
     $settings['apiTimeout'] = (int) ($_POST['apiTimeout'] ?? 15);
     $settings['alipayRealNameEnabled'] = peakrackKycBool($_POST['alipayRealNameEnabled'] ?? false);
+    $settings['alipayFaceEnabled'] = peakrackKycBool($_POST['alipayFaceEnabled'] ?? false);
     $settings['alipayAppId'] = trim((string) ($_POST['alipayAppId'] ?? ''));
     $postedAlipayPrivateKey = trim((string) ($_POST['alipayPrivateKey'] ?? ''));
     $settings['alipayPrivateKey'] = $postedAlipayPrivateKey !== '' ? $postedAlipayPrivateKey : (string) ($current['alipayPrivateKey'] ?? '');
@@ -607,6 +1020,22 @@ function peakrack_kyc_settings_from_post(array $current): array
     $settings['alipayOauthScope'] = trim((string) ($_POST['alipayOauthScope'] ?? 'auth_base'));
     $settings['alipayAuthSource'] = trim((string) ($_POST['alipayAuthSource'] ?? 'alipay_wallet'));
     $settings['alipayCertType'] = trim((string) ($_POST['alipayCertType'] ?? 'IDENTITY_CARD'));
+    $settings['alipayFaceGatewayUrl'] = trim((string) ($_POST['alipayFaceGatewayUrl'] ?? ''));
+    $settings['alipayFaceBizCode'] = trim((string) ($_POST['alipayFaceBizCode'] ?? 'FACE'));
+    $settings['bankCardEnabled'] = peakrackKycBool($_POST['bankCardEnabled'] ?? false);
+    $settings['bankCardFactorMode'] = (string) ($_POST['bankCardFactorMode'] ?? '4');
+    $settings['bankCardCertType'] = trim((string) ($_POST['bankCardCertType'] ?? '0'));
+    $settings['companyVerificationEnabled'] = peakrackKycBool($_POST['companyVerificationEnabled'] ?? false);
+    $settings['companyFactorMode'] = (string) ($_POST['companyFactorMode'] ?? '4');
+    $settings['legalFaceEnabled'] = peakrackKycBool($_POST['legalFaceEnabled'] ?? false);
+    $settings['overseasKycEnabled'] = peakrackKycBool($_POST['overseasKycEnabled'] ?? false);
+    $settings['overseasKycEndpoint'] = trim((string) ($_POST['overseasKycEndpoint'] ?? ''));
+    $settings['overseasKycAuthHeader'] = trim((string) ($_POST['overseasKycAuthHeader'] ?? 'Authorization'));
+    $settings['overseasKycApiKey'] = trim((string) ($_POST['overseasKycApiKey'] ?? ''));
+    $postedOverseasSecret = trim((string) ($_POST['overseasKycApiSecret'] ?? ''));
+    $settings['overseasKycApiSecret'] = $postedOverseasSecret !== '' ? $postedOverseasSecret : (string) ($current['overseasKycApiSecret'] ?? '');
+    $settings['overseasKycSuccessPath'] = trim((string) ($_POST['overseasKycSuccessPath'] ?? 'status'));
+    $settings['overseasKycSuccessValue'] = trim((string) ($_POST['overseasKycSuccessValue'] ?? 'verified'));
     $settings['enforcementMode'] = in_array((string) ($_POST['enforcementMode'] ?? ''), ['none', 'all', 'selected'], true) ? (string) $_POST['enforcementMode'] : 'selected';
     $settings['checkoutMode'] = in_array((string) ($_POST['checkoutMode'] ?? ''), ['block', 'allow_pending'], true) ? (string) $_POST['checkoutMode'] : 'block';
     $settings['enforcedProductIds'] = array_key_exists('enforcedProductIds', $_POST)
@@ -626,7 +1055,18 @@ function peakrack_kyc_settings_from_post(array $current): array
     $settings['emailTemplateRejected'] = trim((string) ($_POST['emailTemplateRejected'] ?? ''));
     $settings['maxUploadMb'] = (int) ($_POST['maxUploadMb'] ?? 8);
     $settings['allowedExtensions'] = peakrackKycNormalizeExtensionList($_POST['allowedExtensions'] ?? '');
+    $settings['storageBackend'] = (string) ($_POST['storageBackend'] ?? 'local');
     $settings['storagePath'] = trim((string) ($_POST['storagePath'] ?? ''));
+    $settings['s3StorageEnabled'] = peakrackKycBool($_POST['s3StorageEnabled'] ?? false);
+    $settings['s3Bucket'] = trim((string) ($_POST['s3Bucket'] ?? ''));
+    $settings['s3Region'] = trim((string) ($_POST['s3Region'] ?? ''));
+    $settings['s3Endpoint'] = trim((string) ($_POST['s3Endpoint'] ?? ''));
+    $settings['s3Prefix'] = trim((string) ($_POST['s3Prefix'] ?? ''));
+    $settings['s3AccessKeyId'] = trim((string) ($_POST['s3AccessKeyId'] ?? ''));
+    $postedS3SecretAccessKey = trim((string) ($_POST['s3SecretAccessKey'] ?? ''));
+    $settings['s3SecretAccessKey'] = $postedS3SecretAccessKey !== '' ? $postedS3SecretAccessKey : (string) ($current['s3SecretAccessKey'] ?? '');
+    $settings['s3PathStyle'] = peakrackKycBool($_POST['s3PathStyle'] ?? false);
+    $settings['s3ServerSideEncryption'] = trim((string) ($_POST['s3ServerSideEncryption'] ?? ''));
     $settings['retentionDays'] = (int) ($_POST['retentionDays'] ?? 1095);
     $settings['maxLogs'] = (int) ($_POST['maxLogs'] ?? 20000);
     $settings['clientNotice']['en'] = trim((string) ($_POST['clientNoticeEn'] ?? $current['clientNotice']['en']));
@@ -909,10 +1349,28 @@ function peakrack_kyc_render_rule_settings(array $settings, array $t, string $st
                 <?php echo peakrack_kyc_field_select('rejectedOrderAction', $settings['rejectedOrderAction'], $t['rejected_action'], ['manual' => $t['rejected_manual'], 'cancel_unpaid' => $t['rejected_cancel_unpaid']]); ?>
                 <?php echo peakrack_kyc_field_number('maxUploadMb', (string) $settings['maxUploadMb'], $t['max_upload']); ?>
                 <?php echo peakrack_kyc_field_text('allowedExtensions', implode(', ', $settings['allowedExtensions']), $t['allowed_extensions']); ?>
+                <?php echo peakrack_kyc_field_select('storageBackend', (string) ($settings['storageBackend'] ?? 'local'), $t['storage_backend'], ['local' => $t['storage_backend_local'], 's3' => $t['storage_backend_s3']]); ?>
                 <?php echo peakrack_kyc_field_text('storagePath', $settings['storagePath'], $t['storage_path'], $t['storage_path_help'] . ' ' . $storage); ?>
                 <?php echo peakrack_kyc_field_number('retentionDays', (string) $settings['retentionDays'], $t['retention_days']); ?>
                 <?php echo peakrack_kyc_field_number('maxLogs', (string) $settings['maxLogs'], $t['max_logs']); ?>
             </div>
+            <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['storage_backend_help']); ?></p>
+            <hr>
+            <div class="prkyc-section-title"><?php echo peakrackKycE($t['s3_storage_settings']); ?></div>
+            <div class="prkyc-checks" style="margin-bottom:12px;">
+                <?php echo peakrack_kyc_checkbox('s3StorageEnabled', (bool) ($settings['s3StorageEnabled'] ?? false), $t['s3_storage_enabled']); ?>
+            </div>
+            <div class="prkyc-grid">
+                <?php echo peakrack_kyc_field_text('s3Bucket', (string) ($settings['s3Bucket'] ?? ''), $t['s3_bucket']); ?>
+                <?php echo peakrack_kyc_field_text('s3Region', (string) ($settings['s3Region'] ?? ''), $t['s3_region']); ?>
+                <?php echo peakrack_kyc_field_text('s3Endpoint', (string) ($settings['s3Endpoint'] ?? ''), $t['s3_endpoint']); ?>
+                <?php echo peakrack_kyc_field_text('s3Prefix', (string) ($settings['s3Prefix'] ?? ''), $t['s3_prefix']); ?>
+                <?php echo peakrack_kyc_field_text('s3AccessKeyId', (string) ($settings['s3AccessKeyId'] ?? ''), $t['s3_access_key_id']); ?>
+                <?php echo peakrack_kyc_field_password('s3SecretAccessKey', '', $t['s3_secret_access_key'], $t['secret_help']); ?>
+                <?php echo peakrack_kyc_checkbox('s3PathStyle', (bool) ($settings['s3PathStyle'] ?? false), $t['s3_path_style']); ?>
+                <?php echo peakrack_kyc_field_text('s3ServerSideEncryption', (string) ($settings['s3ServerSideEncryption'] ?? ''), $t['s3_server_side_encryption']); ?>
+            </div>
+            <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['s3_storage_reserved_help']); ?></p>
             <div style="margin-top:12px;">
                 <button type="submit" name="prkyc_action" value="run_retention_cleanup" class="btn btn-default btn-sm"><?php echo peakrackKycE($t['run_retention_cleanup']); ?></button>
                 <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['retention_cleanup_help']); ?></p>
@@ -1004,6 +1462,8 @@ function peakrack_kyc_render_provider_settings(array $settings, array $t): strin
                 <?php echo peakrack_kyc_field_text('tencentRegion', $settings['tencentRegion'], 'Tencent Region'); ?>
                 <?php echo peakrack_kyc_field_text('tencentEndpoint', $settings['tencentEndpoint'], 'Tencent Endpoint'); ?>
                 <?php echo peakrack_kyc_field_text('tencentVerifyMode', $settings['tencentVerifyMode'], 'Tencent VerifyMode'); ?>
+                <?php echo peakrack_kyc_field_text('tencentOcrEndpoint', (string) ($settings['tencentOcrEndpoint'] ?? ''), 'Tencent OCR Endpoint'); ?>
+                <?php echo peakrack_kyc_field_text('tencentOcrRegion', (string) ($settings['tencentOcrRegion'] ?? ''), 'Tencent OCR Region'); ?>
             </div>
             <hr>
             <div class="prkyc-section-title"><?php echo peakrackKycE($t['alipay_real_name_settings']); ?></div>
@@ -1020,6 +1480,29 @@ function peakrack_kyc_render_provider_settings(array $settings, array $t): strin
                 <?php echo peakrack_kyc_field_text('alipayCallbackUrlDisplay', peakrackKycAlipayCallbackUrl(), $t['alipay_callback_url'], $t['alipay_callback_help'], true); ?>
                 <?php echo peakrack_kyc_field_secret_textarea('alipayPrivateKey', $t['alipay_private_key'], $t['secret_help']); ?>
             </div>
+            <hr>
+            <div class="prkyc-section-title"><?php echo peakrackKycE($t['advanced_provider_settings']); ?></div>
+            <div class="prkyc-checks" style="margin-bottom:12px;">
+                <?php echo peakrack_kyc_checkbox('alipayFaceEnabled', (bool) ($settings['alipayFaceEnabled'] ?? false), $t['alipay_face_enabled']); ?>
+                <?php echo peakrack_kyc_checkbox('bankCardEnabled', (bool) ($settings['bankCardEnabled'] ?? false), $t['bank_card_enabled']); ?>
+                <?php echo peakrack_kyc_checkbox('companyVerificationEnabled', (bool) ($settings['companyVerificationEnabled'] ?? false), $t['company_verification_enabled']); ?>
+                <?php echo peakrack_kyc_checkbox('legalFaceEnabled', (bool) ($settings['legalFaceEnabled'] ?? false), $t['legal_face_enabled']); ?>
+                <?php echo peakrack_kyc_checkbox('overseasKycEnabled', (bool) ($settings['overseasKycEnabled'] ?? false), $t['overseas_kyc_enabled']); ?>
+            </div>
+            <div class="prkyc-grid">
+                <?php echo peakrack_kyc_field_text('alipayFaceGatewayUrl', (string) ($settings['alipayFaceGatewayUrl'] ?? ''), $t['alipay_face_gateway_url']); ?>
+                <?php echo peakrack_kyc_field_text('alipayFaceBizCode', (string) ($settings['alipayFaceBizCode'] ?? ''), $t['alipay_face_biz_code']); ?>
+                <?php echo peakrack_kyc_field_select('bankCardFactorMode', (string) ($settings['bankCardFactorMode'] ?? '4'), $t['bank_card_factor_mode'], ['3' => $t['factor_three'], '4' => $t['factor_four']]); ?>
+                <?php echo peakrack_kyc_field_text('bankCardCertType', (string) ($settings['bankCardCertType'] ?? '0'), $t['bank_card_cert_type']); ?>
+                <?php echo peakrack_kyc_field_select('companyFactorMode', (string) ($settings['companyFactorMode'] ?? '4'), $t['company_factor_mode'], ['3' => $t['factor_three'], '4' => $t['factor_four']]); ?>
+                <?php echo peakrack_kyc_field_text('overseasKycEndpoint', (string) ($settings['overseasKycEndpoint'] ?? ''), $t['overseas_kyc_endpoint']); ?>
+                <?php echo peakrack_kyc_field_text('overseasKycAuthHeader', (string) ($settings['overseasKycAuthHeader'] ?? ''), $t['overseas_kyc_auth_header']); ?>
+                <?php echo peakrack_kyc_field_text('overseasKycApiKey', (string) ($settings['overseasKycApiKey'] ?? ''), $t['overseas_kyc_api_key']); ?>
+                <?php echo peakrack_kyc_field_password('overseasKycApiSecret', '', $t['overseas_kyc_api_secret'], $t['secret_help']); ?>
+                <?php echo peakrack_kyc_field_text('overseasKycSuccessPath', (string) ($settings['overseasKycSuccessPath'] ?? ''), $t['overseas_kyc_success_path']); ?>
+                <?php echo peakrack_kyc_field_text('overseasKycSuccessValue', (string) ($settings['overseasKycSuccessValue'] ?? ''), $t['overseas_kyc_success_value']); ?>
+            </div>
+            <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['advanced_provider_help']); ?></p>
         </div>
     </div>
     <?php
@@ -1430,8 +1913,23 @@ function peakrack_kyc_admin_texts(string $language): array
             'rejected_cancel_unpaid' => 'Cancel unpaid pending orders',
             'max_upload' => 'Max upload size (MB)',
             'allowed_extensions' => 'Allowed extensions',
+            'storage_backend' => 'Storage backend',
+            'storage_backend_local' => 'Local private path',
+            'storage_backend_s3' => 'S3 / S3-compatible (reserved)',
+            'storage_backend_help' => 'Local private storage is active in this build. S3 settings are saved now so the later S3 adapter can be enabled without changing the admin surface.',
             'storage_path' => 'Private storage path',
             'storage_path_help' => 'Leave blank to use default private attachment path:',
+            's3_storage_settings' => 'S3 / S3-Compatible Storage',
+            's3_storage_enabled' => 'Prepare S3 settings',
+            's3_storage_reserved_help' => 'S3 upload/download is not active yet. Until the S3 adapter is enabled, document uploads continue to use the local private path above.',
+            's3_bucket' => 'S3 bucket',
+            's3_region' => 'S3 region',
+            's3_endpoint' => 'S3 endpoint',
+            's3_prefix' => 'S3 object prefix',
+            's3_access_key_id' => 'S3 Access Key ID',
+            's3_secret_access_key' => 'S3 Secret Access Key',
+            's3_path_style' => 'Use path-style endpoint',
+            's3_server_side_encryption' => 'S3 server-side encryption',
             'retention_days' => 'Log retention days',
             'max_logs' => 'Maximum log rows',
             'run_retention_cleanup' => 'Run retention cleanup now',
@@ -1444,10 +1942,10 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_tencent_desc' => 'Tencent Cloud PhoneVerification for Chinese mainland phone, name, and ID matching.',
             'provider_manual_desc' => 'Manual upload and admin review for individual, company, passport, and address-proof workflows.',
             'provider_alipay_real_name_desc' => 'Alipay real-name information matching through preconsult, user authorization, and consult callback.',
-            'provider_alipay_desc' => 'Reserved for Alipay face verification with a future signed redirect / callback workflow.',
-            'provider_bank_card_desc' => 'Reserved for bank-card multi-factor identity checks such as name, ID, card number, and phone.',
-            'provider_company_desc' => 'Reserved for legal entity verification, business license checks, and legal representative face verification.',
-            'provider_overseas_desc' => 'Reserved for overseas KYC API flows such as passport, address proof, sanctions, and liveness checks.',
+            'provider_alipay_desc' => 'Alipay identity verification initialize, certify redirect, and query flow for face-based real-name checks.',
+            'provider_bank_card_desc' => 'Tencent Cloud bank-card three/four-factor checks for name, ID, card number, and optional phone.',
+            'provider_company_desc' => 'Tencent Cloud company four-factor verification for business name, credit code, legal representative, and legal representative ID.',
+            'provider_overseas_desc' => 'Configurable JSON adapter for overseas KYC APIs such as passport, address proof, sanctions, and liveness providers.',
             'provider_reserved_desc' => 'Reserved for a later provider adapter; runtime verification is not enabled yet.',
             'tencent_settings' => 'Tencent PhoneVerification',
             'alipay_real_name_settings' => 'Alipay Real-Name Information Verification',
@@ -1460,6 +1958,26 @@ function peakrack_kyc_admin_texts(string $language): array
             'alipay_callback_url' => 'Alipay callback URL',
             'alipay_callback_help' => 'Add this URL to the Alipay application authorization callback whitelist.',
             'alipay_private_key' => 'Alipay app private key',
+            'advanced_provider_settings' => 'Advanced Provider Settings',
+            'advanced_provider_help' => 'Bank-card and company verification use Tencent Cloud signed API calls. Alipay face uses the classic Alipay identity verification initialize/certify/query flow. Overseas KYC is a configurable JSON API adapter.',
+            'alipay_face_enabled' => 'Enable Alipay face verification',
+            'alipay_face_gateway_url' => 'Alipay face gateway URL',
+            'alipay_face_biz_code' => 'Alipay face biz code',
+            'bank_card_enabled' => 'Enable bank-card multi-factor verification',
+            'bank_card_factor_mode' => 'Bank-card factor mode',
+            'bank_card_cert_type' => 'Bank-card certificate type',
+            'company_verification_enabled' => 'Enable company element verification',
+            'company_factor_mode' => 'Company factor mode',
+            'legal_face_enabled' => 'Enable legal representative face workflow',
+            'overseas_kyc_enabled' => 'Enable overseas KYC API adapter',
+            'overseas_kyc_endpoint' => 'Overseas KYC endpoint',
+            'overseas_kyc_auth_header' => 'Overseas KYC auth header',
+            'overseas_kyc_api_key' => 'Overseas KYC API key',
+            'overseas_kyc_api_secret' => 'Overseas KYC API secret',
+            'overseas_kyc_success_path' => 'Overseas KYC success JSON path',
+            'overseas_kyc_success_value' => 'Overseas KYC success value',
+            'factor_three' => 'Three-factor',
+            'factor_four' => 'Four-factor',
             'test_mode' => 'Test / sandbox mode',
             'secret_help' => 'Leave blank to keep the saved secret. Saved secrets are not rendered back to the page.',
             'api_timeout' => 'API timeout seconds',
@@ -1547,8 +2065,23 @@ function peakrack_kyc_admin_texts(string $language): array
             'rejected_cancel_unpaid' => '取消未付款待处理订单',
             'max_upload' => '最大上传大小（MB）',
             'allowed_extensions' => '允许的文件扩展名',
+            'storage_backend' => '存储后端',
+            'storage_backend_local' => '本地私有路径',
+            'storage_backend_s3' => 'S3 / S3 兼容存储（预留）',
+            'storage_backend_help' => '当前版本实际上传仍使用本地私有存储。S3 配置会先保存，后续启用 S3 适配器时后台结构不需要再改。',
             'storage_path' => '私有存储路径',
             'storage_path_help' => '留空使用默认私有附件路径：',
+            's3_storage_settings' => 'S3 / S3 兼容存储',
+            's3_storage_enabled' => '准备 S3 配置',
+            's3_storage_reserved_help' => 'S3 上传/下载适配器尚未启用。启用前，证件材料仍写入上面的本地私有路径。',
+            's3_bucket' => 'S3 Bucket',
+            's3_region' => 'S3 Region',
+            's3_endpoint' => 'S3 Endpoint',
+            's3_prefix' => 'S3 对象前缀',
+            's3_access_key_id' => 'S3 Access Key ID',
+            's3_secret_access_key' => 'S3 Secret Access Key',
+            's3_path_style' => '使用 path-style endpoint',
+            's3_server_side_encryption' => 'S3 服务端加密',
             'retention_days' => '日志保留天数',
             'max_logs' => '最大日志行数',
             'run_retention_cleanup' => '立即执行保留清理',
@@ -1561,10 +2094,10 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_tencent_desc' => '腾讯云 PhoneVerification，用于中国大陆手机号、姓名、身份证三要素核验。',
             'provider_manual_desc' => '人工上传和后台审核，覆盖个人、企业、护照和地址证明流程。',
             'provider_alipay_real_name_desc' => '支付宝实名信息验证：预咨询录入证件信息，用户授权后查询是否与支付宝实名信息一致。',
-            'provider_alipay_desc' => '预留支付宝人脸核验，后续接入签名跳转和回调流程。',
-            'provider_bank_card_desc' => '预留银行卡多要素认证，例如姓名、身份证、银行卡号和手机号组合核验。',
-            'provider_company_desc' => '预留企业主体、营业执照和法人人脸核验流程。',
-            'provider_overseas_desc' => '预留海外 KYC API，例如护照、地址证明、制裁名单和活体检测。',
+            'provider_alipay_desc' => '支付宝身份验证 initialize、certify 跳转和 query 查询流程，用于人脸实名核验。',
+            'provider_bank_card_desc' => '腾讯云银行卡三/四要素核验，支持姓名、身份证、银行卡号和手机号组合。',
+            'provider_company_desc' => '腾讯云企业四要素核验，校验企业名称、统一社会信用代码、法人姓名和法人证件号。',
+            'provider_overseas_desc' => '可配置 JSON 适配器，用于接入海外 KYC API，例如护照、地址证明、制裁名单和活体检测。',
             'provider_reserved_desc' => '预留给后续 Provider 适配器，目前不启用运行核验。',
             'tencent_settings' => '腾讯云三要素',
             'alipay_real_name_settings' => '支付宝实名信息验证',
@@ -1577,6 +2110,26 @@ function peakrack_kyc_admin_texts(string $language): array
             'alipay_callback_url' => '支付宝授权回调地址',
             'alipay_callback_help' => '请把这个地址填写到支付宝应用的授权回调地址白名单里。',
             'alipay_private_key' => '支付宝应用私钥',
+            'advanced_provider_settings' => '高级 Provider 设置',
+            'advanced_provider_help' => '银行卡和企业要素核验使用腾讯云签名 API；支付宝人脸实名使用支付宝身份验证 initialize/certify/query 流程；海外 KYC 为可配置 JSON API 适配器。',
+            'alipay_face_enabled' => '启用支付宝人脸实名',
+            'alipay_face_gateway_url' => '支付宝人脸网关地址',
+            'alipay_face_biz_code' => '支付宝人脸 biz_code',
+            'bank_card_enabled' => '启用银行卡多要素认证',
+            'bank_card_factor_mode' => '银行卡要素模式',
+            'bank_card_cert_type' => '银行卡证件类型',
+            'company_verification_enabled' => '启用企业要素核验',
+            'company_factor_mode' => '企业要素模式',
+            'legal_face_enabled' => '启用法人人脸流程',
+            'overseas_kyc_enabled' => '启用海外 KYC API 适配',
+            'overseas_kyc_endpoint' => '海外 KYC 接口地址',
+            'overseas_kyc_auth_header' => '海外 KYC 鉴权 Header',
+            'overseas_kyc_api_key' => '海外 KYC API Key',
+            'overseas_kyc_api_secret' => '海外 KYC API Secret',
+            'overseas_kyc_success_path' => '海外 KYC 成功字段路径',
+            'overseas_kyc_success_value' => '海外 KYC 成功值',
+            'factor_three' => '三要素',
+            'factor_four' => '四要素',
             'test_mode' => '测试 / 沙箱模式',
             'secret_help' => '留空表示保留已保存密钥，已保存密钥不会回显到页面。',
             'api_timeout' => 'API 超时秒数',
@@ -1644,8 +2197,10 @@ function peakrack_kyc_admin_texts(string $language): array
         'check_fileinfo' => 'Fileinfo MIME check',
         'check_storage' => 'Private storage',
         'check_storage_guards' => 'Storage deny files',
+        'check_s3_storage' => 'S3 storage',
         'check_tencent_credentials' => 'Tencent credentials',
         'check_alipay_credentials' => 'Alipay credentials',
+        'check_advanced_providers' => 'Advanced providers',
         'profile_detail' => 'Profile Detail',
         'back' => 'Back',
         'profile_not_found' => 'Verification profile was not found.',
@@ -1710,8 +2265,10 @@ function peakrack_kyc_admin_texts(string $language): array
         'check_fileinfo' => 'Fileinfo MIME 检查',
         'check_storage' => '私有存储',
         'check_storage_guards' => '存储防直链文件',
+        'check_s3_storage' => 'S3 存储',
         'check_tencent_credentials' => '腾讯云密钥',
         'check_alipay_credentials' => '支付宝密钥',
+        'check_advanced_providers' => '高级 Provider',
         'profile_detail' => '实名详情',
         'back' => '返回',
         'profile_not_found' => '没有找到这条实名资料。',
@@ -1745,9 +2302,20 @@ function peakrack_kyc_client_texts(string $language): array
             'api_title' => 'Chinese Mainland Three-Factor Verification',
             'alipay_title' => 'Alipay Real-Name Information Verification',
             'alipay_help' => 'This flow opens Alipay authorization after your name and ID number are pre-registered for comparison.',
+            'alipay_face_title' => 'Alipay Face Verification',
+            'alipay_face_help' => 'This flow opens Alipay identity verification and checks the result after the user returns.',
+            'bank_card_title' => 'Bank-Card Multi-Factor Verification',
+            'company_api_title' => 'Company Element Verification',
+            'legal_face_title' => 'Legal Representative Face Verification',
+            'legal_face_help' => 'This uses the Alipay identity verification flow for the company legal representative.',
+            'overseas_api_title' => 'Overseas KYC API Verification',
             'real_name' => 'Legal name',
             'id_number' => 'ID number',
             'phone' => 'Mobile number',
+            'bank_card' => 'Bank card number',
+            'passport_number' => 'Passport / document number',
+            'legal_person_name' => 'Legal representative name',
+            'legal_person_id' => 'Legal representative ID',
             'profile_type' => 'Verification type',
             'individual' => 'Individual',
             'corporate' => 'Company',
@@ -1762,6 +2330,11 @@ function peakrack_kyc_client_texts(string $language): array
             'submit_manual' => 'Submit for Review',
             'submit_api' => 'Verify by API',
             'submit_alipay' => 'Verify with Alipay',
+            'submit_alipay_face' => 'Verify with Alipay Face',
+            'submit_bank_card' => 'Verify Bank Card',
+            'submit_company_api' => 'Verify Company',
+            'submit_legal_face' => 'Verify Legal Representative',
+            'submit_overseas_api' => 'Verify Overseas KYC',
             'allowed' => 'Allowed files',
         ],
         'zh' => [
@@ -1770,9 +2343,20 @@ function peakrack_kyc_client_texts(string $language): array
             'api_title' => '中国大陆手机号三要素校验',
             'alipay_title' => '支付宝实名信息验证',
             'alipay_help' => '提交姓名和身份证号码后，将跳转支付宝授权，再比对支付宝实名信息是否一致。',
+            'alipay_face_title' => '支付宝人脸实名',
+            'alipay_face_help' => '提交姓名和身份证后跳转支付宝身份验证，用户返回后自动查询认证结果。',
+            'bank_card_title' => '银行卡多要素认证',
+            'company_api_title' => '企业要素核验',
+            'legal_face_title' => '法人人脸验证',
+            'legal_face_help' => '使用支付宝身份验证流程核验企业法人/负责人本人。',
+            'overseas_api_title' => '海外 KYC API 核验',
             'real_name' => '真实姓名',
             'id_number' => '证件号码',
             'phone' => '手机号',
+            'bank_card' => '银行卡号',
+            'passport_number' => '护照/证件号码',
+            'legal_person_name' => '法人姓名',
+            'legal_person_id' => '法人证件号',
             'profile_type' => '实名类型',
             'individual' => '个人',
             'corporate' => '企业',
@@ -1787,6 +2371,11 @@ function peakrack_kyc_client_texts(string $language): array
             'submit_manual' => '提交人工审核',
             'submit_api' => 'API 校验',
             'submit_alipay' => '使用支付宝验证',
+            'submit_alipay_face' => '使用支付宝人脸实名',
+            'submit_bank_card' => '核验银行卡',
+            'submit_company_api' => '核验企业',
+            'submit_legal_face' => '核验法人',
+            'submit_overseas_api' => '核验海外 KYC',
             'allowed' => '允许文件',
         ],
     ];

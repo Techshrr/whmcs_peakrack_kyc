@@ -59,6 +59,12 @@
                         <label for="prkyc-phone-api">{$prkyc.text.phone|escape}</label>
                         <input type="text" class="form-control" id="prkyc-phone-api" name="phone" autocomplete="tel" required>
                     </div>
+                    {if $prkyc.settings.apiProvider == 'bank_card_multi_factor'}
+                        <div class="col-md-4 form-group mb-3">
+                            <label for="prkyc-bank-card-api">{$prkyc.text.bank_card|escape}</label>
+                            <input type="text" class="form-control" id="prkyc-bank-card-api" name="bank_card" autocomplete="off" required>
+                        </div>
+                    {/if}
                 </div>
                 <button type="submit" class="btn btn-primary">{$prkyc.text.submit_api|escape}</button>
             </form>
@@ -91,6 +97,170 @@
                     </div>
                 </div>
                 <button type="submit" class="btn btn-primary">{$prkyc.text.submit_alipay|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
+{if $prkyc.settings.alipayFaceEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.alipay_face_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <p class="small text-muted">{$prkyc.text.alipay_face_help|escape}</p>
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="alipay_face_start">
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-real-name-alipay-face">{$prkyc.text.real_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-real-name-alipay-face" name="real_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-id-number-alipay-face">{$prkyc.text.id_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-id-number-alipay-face" name="id_number" autocomplete="off" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_alipay_face|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
+{if $prkyc.settings.bankCardEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.bank_card_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="bank_card_verify">
+                <div class="row">
+                    <div class="col-md-3 form-group mb-3">
+                        <label for="prkyc-real-name-bank">{$prkyc.text.real_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-real-name-bank" name="real_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-3 form-group mb-3">
+                        <label for="prkyc-id-number-bank">{$prkyc.text.id_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-id-number-bank" name="id_number" autocomplete="off" required>
+                    </div>
+                    <div class="col-md-3 form-group mb-3">
+                        <label for="prkyc-phone-bank">{$prkyc.text.phone|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-phone-bank" name="phone" autocomplete="tel" {if $prkyc.settings.bankCardFactorMode == '4'}required{/if}>
+                    </div>
+                    <div class="col-md-3 form-group mb-3">
+                        <label for="prkyc-bank-card">{$prkyc.text.bank_card|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-bank-card" name="bank_card" autocomplete="off" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_bank_card|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
+{if $prkyc.settings.companyVerificationEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.company_api_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="company_verify">
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-company-api-name">{$prkyc.text.company_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-company-api-name" name="company_name" autocomplete="organization" required>
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-company-api-reg">{$prkyc.text.registration_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-company-api-reg" name="registration_number" autocomplete="off" required>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-name">{$prkyc.text.legal_person_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-name" name="legal_person_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-id">{$prkyc.text.legal_person_id|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-id" name="legal_person_id" autocomplete="off" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_company_api|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
+{if $prkyc.settings.legalFaceEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.legal_face_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <p class="small text-muted">{$prkyc.text.legal_face_help|escape}</p>
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="alipay_face_start">
+                <input type="hidden" name="profile_type" value="corporate">
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-face-company">{$prkyc.text.company_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-face-company" name="company_name" autocomplete="organization">
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-face-reg">{$prkyc.text.registration_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-face-reg" name="registration_number" autocomplete="off">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-face-name">{$prkyc.text.legal_person_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-face-name" name="real_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-6 form-group mb-3">
+                        <label for="prkyc-legal-face-id">{$prkyc.text.legal_person_id|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-legal-face-id" name="id_number" autocomplete="off" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_legal_face|escape}</button>
+            </form>
+        </div>
+    </div>
+{/if}
+
+{if $prkyc.settings.overseasKycEnabled}
+    <div class="panel panel-default card mb-3">
+        <div class="panel-heading card-header">
+            <h3 class="panel-title card-title m-0">{$prkyc.text.overseas_api_title|escape}</h3>
+        </div>
+        <div class="panel-body card-body">
+            <form method="post" action="{$prkyc.modulelink|escape}">
+                <input type="hidden" name="token" value="{$prkyc.token|escape}">
+                <input type="hidden" name="prkyc_client_action" value="overseas_kyc_verify">
+                <div class="row">
+                    <div class="col-md-4 form-group mb-3">
+                        <label for="prkyc-overseas-name">{$prkyc.text.real_name|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-overseas-name" name="real_name" autocomplete="name" required>
+                    </div>
+                    <div class="col-md-4 form-group mb-3">
+                        <label for="prkyc-passport-number">{$prkyc.text.passport_number|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-passport-number" name="passport_number" autocomplete="off" required>
+                    </div>
+                    <div class="col-md-2 form-group mb-3">
+                        <label for="prkyc-overseas-country">{$prkyc.text.country|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-overseas-country" name="country" maxlength="2" placeholder="US" required>
+                    </div>
+                    <div class="col-md-2 form-group mb-3">
+                        <label for="prkyc-overseas-document-type">{$prkyc.text.document_type|escape}</label>
+                        <input type="text" class="form-control" id="prkyc-overseas-document-type" name="document_type" value="passport">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">{$prkyc.text.submit_overseas_api|escape}</button>
             </form>
         </div>
     </div>

@@ -26,6 +26,8 @@ Then activate **PeakRack KYC** under `System Settings > Addon Modules`.
 2. Upload the new `peakrack_kyc/` directory over the old one.
 3. Open the addon in WHMCS Admin once so schema checks and default settings run.
 4. Review API settings, product enforcement mode, and private storage path.
+5. Review the new advanced provider settings before enabling Alipay face, bank-card, company, legal-representative face, or overseas KYC flows.
+6. If `S3 / S3-compatible` is selected, keep the local private storage path configured. In this build S3 settings are saved for future use, but uploads still use local private storage.
 5. Run `php -l` on the addon PHP files before publishing to production.
 
 ### Data Safety

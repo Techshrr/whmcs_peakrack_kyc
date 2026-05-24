@@ -18,11 +18,14 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Provides admin CRUD for product, product group, and TLD enforcement rules.
 - Supports Chinese mainland mobile number, name, and ID number three-factor verification through Tencent Cloud FaceID `PhoneVerification`.
 - Supports Alipay real-name information verification through OpenAPI V3 preconsult, Alipay user authorization, and consult callback.
+- Supports Alipay face/identity verification through initialize, certify redirect, and query callbacks.
+- Supports Tencent Cloud bank-card three/four-factor verification and Tencent OCR company four-factor verification.
+- Provides a configurable overseas KYC JSON API adapter for passport/document providers that expose server-side HTTP APIs.
 - Separates providers behind a common `verify()`, `getName()`, and `getConfigFields()` interface.
-- Implements `TencentPhoneThreeFactorProvider`, `AlipayRealNameInfoProvider`, and `ManualReviewProvider`, with reserved provider adapters for later work.
+- Implements `TencentPhoneThreeFactorProvider`, `AlipayRealNameInfoProvider`, `AlipayFaceProvider`, `BankCardProvider`, `CompanyVerificationProvider`, `OverseasKycProvider`, and `ManualReviewProvider`.
 - Persists Alipay OAuth callback state in the database so authorization callbacks are not dependent on only the PHP session.
 - Supports manual document upload for individuals, companies, overseas passport verification, address proof, business licenses, utility bills, and mixed KYC cases.
-- Can block checkout for unverified clients when selected products, product groups, or reserved TLD rules require KYC.
+- Can block checkout for unverified clients when selected products, product groups, or TLD rules require KYC.
 - Can abort product provisioning if a required product reaches module creation before the client is verified.
 - Can keep post-checkout orders pending for review.
 - Can optionally cancel unpaid pending orders after KYC rejection.
@@ -31,6 +34,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Can refresh existing bundled PeakRack email templates only when the administrator explicitly opts in.
 - Provides manual retention cleanup for old audit logs, API logs, and previously deleted document records/files.
 - Stores uploaded documents in a private path with generated names and deny files to reduce direct-link exposure.
+- Adds an admin storage backend selector for local private storage and reserved S3/S3-compatible settings. Local storage remains the active upload backend until the S3 adapter is enabled in a later build.
 - Requires an authenticated WHMCS admin session and token for document downloads.
 - Allows clients to delete their own non-verified uploaded documents without downloading original files.
 - Stores sensitive ID, phone, and registration numbers as salted hashes plus last-four display values.
@@ -40,7 +44,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Scope Notes
 
-Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch started the provider framework and implemented Alipay real-name information verification. The `develop/v1.2` branch hardens production callback handling, starting with database-backed Alipay OAuth state storage. Alipay face verification, bank-card multi-factor verification, legal-representative/company verification, and dedicated overseas KYC providers remain reserved until their runtime verification logic is implemented.
+Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch started the provider framework and implemented Alipay real-name information verification. The `develop/v1.2` branch hardens production callback handling, adds visible storage backend preparation, and begins the advanced provider layer for Alipay face verification, bank-card factors, company factors, legal-representative face verification, overseas KYC API adapters, and TLD enforcement rules.
 
 ## Package Layout
 
