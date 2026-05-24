@@ -31,7 +31,7 @@ require_once __DIR__ . '/Providers/CompanyVerificationProvider.php';
 require_once __DIR__ . '/Providers/OverseasKycProvider.php';
 
 const PRKYC_MODULE = 'peakrack_kyc';
-const PRKYC_VERSION = '1.1.0-dev';
+const PRKYC_VERSION = '1.2.0-dev';
 const PRKYC_SETTING_KEY = 'config';
 const PRKYC_SETTINGS_TABLE = 'mod_peakrack_kyc_settings';
 const PRKYC_PROFILES_TABLE = 'mod_peakrack_kyc_profiles';
@@ -40,6 +40,7 @@ const PRKYC_DOCUMENTS_TABLE = 'mod_peakrack_kyc_documents';
 const PRKYC_PROVIDER_LOGS_TABLE = 'mod_peakrack_kyc_provider_logs';
 const PRKYC_RULES_TABLE = 'mod_peakrack_kyc_rules';
 const PRKYC_LOGS_TABLE = 'mod_peakrack_kyc_audit_logs';
+const PRKYC_OAUTH_STATES_TABLE = 'mod_peakrack_kyc_oauth_states';
 const PRKYC_API_ATTEMPTS_TABLE = PRKYC_PROVIDER_LOGS_TABLE;
 
 if (!function_exists('peakrackKycDefaults')) {
@@ -216,6 +217,22 @@ if (!function_exists('peakrackKycCreateTables')) {
                 $table->string('isp', 80)->nullable();
                 $table->string('request_id', 120)->nullable();
                 $table->longText('response_json')->nullable();
+                $table->timestamp('created_at')->nullable()->index();
+            });
+        }
+
+        if (!$schema->hasTable(PRKYC_OAUTH_STATES_TABLE)) {
+            $schema->create(PRKYC_OAUTH_STATES_TABLE, static function ($table): void {
+                $table->increments('id');
+                $table->string('provider', 80)->index();
+                $table->unsignedInteger('client_id')->index();
+                $table->unsignedInteger('profile_id')->nullable()->index();
+                $table->unsignedInteger('submission_id')->nullable()->index();
+                $table->string('state_hash', 128)->unique();
+                $table->string('verify_id', 191)->nullable();
+                $table->longText('context_json')->nullable();
+                $table->timestamp('expires_at')->nullable()->index();
+                $table->timestamp('consumed_at')->nullable()->index();
                 $table->timestamp('created_at')->nullable()->index();
             });
         }
@@ -1429,6 +1446,66 @@ if (!function_exists('peakrackKycAlipayCertdocPreconsult')) {
         return peakrackKycSystemUrl() . '/index.php?m=peakrack_kyc&prkyc_client_action=alipay_real_name_callback';
     }
 
+    function peakrackKycStoreOauthState(string $provider, int $clientId, int $profileId, int $submissionId, string $state, string $verifyId, array $context = [], int $ttlSeconds = 1800): void
+    {
+        Capsule::table(PRKYC_OAUTH_STATES_TABLE)->insert([
+            'provider' => substr($provider, 0, 80),
+            'client_id' => $clientId,
+            'profile_id' => $profileId > 0 ? $profileId : null,
+            'submission_id' => $submissionId > 0 ? $submissionId : null,
+            'state_hash' => peakrackKycOauthStateHash($state),
+            'verify_id' => $verifyId !== '' ? substr($verifyId, 0, 191) : null,
+            'context_json' => !empty($context) ? peakrackKycJsonEncode(peakrackKycRedactApiResponse($context)) : null,
+            'expires_at' => date('Y-m-d H:i:s', time() + max(60, $ttlSeconds)),
+            'consumed_at' => null,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    function peakrackKycGetOauthState(string $provider, int $clientId, string $state): ?object
+    {
+        if ($state === '' || $clientId <= 0) {
+            return null;
+        }
+
+        return Capsule::table(PRKYC_OAUTH_STATES_TABLE)
+            ->where('provider', $provider)
+            ->where('client_id', $clientId)
+            ->where('state_hash', peakrackKycOauthStateHash($state))
+            ->whereNull('consumed_at')
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>=', date('Y-m-d H:i:s'));
+            })
+            ->first();
+    }
+
+    function peakrackKycConsumeOauthState(int $stateId): void
+    {
+        if ($stateId <= 0) {
+            return;
+        }
+
+        Capsule::table(PRKYC_OAUTH_STATES_TABLE)
+            ->where('id', $stateId)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => date('Y-m-d H:i:s')]);
+    }
+
+    function peakrackKycCleanupOauthStates(): int
+    {
+        return (int) Capsule::table(PRKYC_OAUTH_STATES_TABLE)
+            ->where(function ($query): void {
+                $query->whereNotNull('consumed_at')
+                    ->orWhere('expires_at', '<', date('Y-m-d H:i:s'));
+            })
+            ->delete();
+    }
+
+    function peakrackKycOauthStateHash(string $state): string
+    {
+        return hash('sha256', peakrackKycHashPepper() . '|oauth-state|' . $state);
+    }
+
     function peakrackKycAlipayV3Request(string $method, string $path, array $payload, array $settings, array $query = []): array
     {
         $appId = trim((string) ($settings['alipayAppId'] ?? ''));
@@ -2157,7 +2234,7 @@ if (!function_exists('peakrackKycSendAdminNotification')) {
 if (!function_exists('peakrackKycCleanupRetention')) {
     function peakrackKycCleanupRetention(array $settings): array
     {
-        $deleted = ['logs' => 0, 'api_attempts' => 0, 'documents' => 0];
+        $deleted = ['logs' => 0, 'api_attempts' => 0, 'documents' => 0, 'oauth_states' => 0];
         $days = (int) $settings['retentionDays'];
         if ($days > 0) {
             $cutoff = date('Y-m-d H:i:s', time() - ($days * 86400));
@@ -2189,6 +2266,11 @@ if (!function_exists('peakrackKycCleanupRetention')) {
                     $deleted['logs'] += (int) Capsule::table(PRKYC_LOGS_TABLE)->whereIn('id', $ids)->delete();
                 }
             }
+        }
+
+        try {
+            $deleted['oauth_states'] += peakrackKycCleanupOauthStates();
+        } catch (Throwable $e) {
         }
 
         return $deleted;

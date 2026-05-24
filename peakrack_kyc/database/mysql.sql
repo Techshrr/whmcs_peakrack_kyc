@@ -156,3 +156,26 @@ CREATE TABLE IF NOT EXISTS `mod_peakrack_kyc_audit_logs` (
   KEY `level` (`level`),
   KEY `created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `mod_peakrack_kyc_oauth_states` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `provider` varchar(80) NOT NULL,
+  `client_id` int unsigned NOT NULL,
+  `profile_id` int unsigned DEFAULT NULL,
+  `submission_id` int unsigned DEFAULT NULL,
+  `state_hash` varchar(128) NOT NULL,
+  `verify_id` varchar(191) DEFAULT NULL,
+  `context_json` longtext DEFAULT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `consumed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `state_hash` (`state_hash`),
+  KEY `provider` (`provider`),
+  KEY `client_id` (`client_id`),
+  KEY `profile_id` (`profile_id`),
+  KEY `submission_id` (`submission_id`),
+  KEY `expires_at` (`expires_at`),
+  KEY `consumed_at` (`consumed_at`),
+  KEY `created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

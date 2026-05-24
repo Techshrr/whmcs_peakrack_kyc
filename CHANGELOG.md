@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0-dev - Unreleased
+
+- Started the v1.2 branch on `develop/v1.2`.
+- Added database-backed OAuth state storage for Alipay authorization callbacks, with session fallback for older in-flight callbacks.
+- Added OAuth state cleanup to retention cleanup and documented the new `mod_peakrack_kyc_oauth_states` table.
+
 ## 1.1.0-dev - Unreleased
 
 - Started the v1.1 provider framework on `develop/v1.1`.

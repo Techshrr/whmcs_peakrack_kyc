@@ -1,5 +1,11 @@
 # 升级说明
 
+## 1.2.0-dev
+
+- 新增 `mod_peakrack_kyc_oauth_states`，用于持久化支付宝 OAuth 授权回调 state。
+- 覆盖上传后打开一次插件后台页面，`peakrackKycCreateTables()` 会自动创建新表。
+- 如果生产环境采用手动 SQL 变更，请先执行 `database/mysql.sql`，再启用支付宝实名信息验证。
+
 ## 1.0.0
 
 首次发布。

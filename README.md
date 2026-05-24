@@ -6,7 +6,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Current Version
 
-`1.1.0-dev`
+`1.2.0-dev`
 
 ## Features
 
@@ -19,7 +19,8 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Supports Chinese mainland mobile number, name, and ID number three-factor verification through Tencent Cloud FaceID `PhoneVerification`.
 - Supports Alipay real-name information verification through OpenAPI V3 preconsult, Alipay user authorization, and consult callback.
 - Separates providers behind a common `verify()`, `getName()`, and `getConfigFields()` interface.
-- Implements `TencentPhoneThreeFactorProvider`, `AlipayRealNameInfoProvider`, and `ManualReviewProvider`, with reserved provider adapters for later v1.1 work.
+- Implements `TencentPhoneThreeFactorProvider`, `AlipayRealNameInfoProvider`, and `ManualReviewProvider`, with reserved provider adapters for later work.
+- Persists Alipay OAuth callback state in the database so authorization callbacks are not dependent on only the PHP session.
 - Supports manual document upload for individuals, companies, overseas passport verification, address proof, business licenses, utility bills, and mixed KYC cases.
 - Can block checkout for unverified clients when selected products, product groups, or reserved TLD rules require KYC.
 - Can abort product provisioning if a required product reaches module creation before the client is verified.
@@ -39,7 +40,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Scope Notes
 
-Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch starts the provider framework and implements Alipay real-name information verification. Alipay face verification, bank-card multi-factor verification, legal-representative/company verification, and dedicated overseas KYC providers remain reserved until their runtime verification logic is implemented.
+Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch started the provider framework and implemented Alipay real-name information verification. The `develop/v1.2` branch hardens production callback handling, starting with database-backed Alipay OAuth state storage. Alipay face verification, bank-card multi-factor verification, legal-representative/company verification, and dedicated overseas KYC providers remain reserved until their runtime verification logic is implemented.
 
 ## Package Layout
 
@@ -161,6 +162,7 @@ The addon creates:
 - `mod_peakrack_kyc_provider_logs`
 - `mod_peakrack_kyc_rules`
 - `mod_peakrack_kyc_audit_logs`
+- `mod_peakrack_kyc_oauth_states`
 
 Tables are kept on deactivation for audit history.
 
@@ -198,6 +200,7 @@ For release builds, also compare the source package against `modules/addons/peak
 - Submit Tencent three-factor verification in test mode.
 - Submit Alipay real-name verification in test mode.
 - In an Alipay staging app, confirm `preconsult -> authorization callback -> token exchange -> consult` with a real callback whitelist entry.
+- Confirm Alipay callbacks still resolve if the `peakrack_kyc_alipay` session key is missing but the WHMCS client remains logged in.
 - Submit manual individual KYC with JPG, PNG, and PDF files.
 - Confirm MIME mismatch files are rejected.
 - Approve, reject, revoke, and request resubmission from admin.

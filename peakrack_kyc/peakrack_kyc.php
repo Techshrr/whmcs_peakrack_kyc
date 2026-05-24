@@ -128,10 +128,11 @@ function peakrack_kyc_output(array $vars): void
             } elseif ($action === 'run_retention_cleanup') {
                 $deleted = peakrackKycCleanupRetention($settings);
                 $message = sprintf(
-                    'Retention cleanup completed. Logs: %d, API attempts: %d, deleted documents: %d.',
+                    'Retention cleanup completed. Logs: %d, API attempts: %d, deleted documents: %d, OAuth states: %d.',
                     (int) ($deleted['logs'] ?? 0),
                     (int) ($deleted['api_attempts'] ?? 0),
-                    (int) ($deleted['documents'] ?? 0)
+                    (int) ($deleted['documents'] ?? 0),
+                    (int) ($deleted['oauth_states'] ?? 0)
                 );
                 $messageType = 'success';
             } elseif ($action === 'review_profile') {
@@ -368,6 +369,15 @@ function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settin
     ], $preconsult);
 
     $state = bin2hex(random_bytes(16));
+    try {
+        peakrackKycStoreOauthState('alipay_real_name_info', $clientId, $profileId, $submissionId, $state, $verifyId, [
+            'request_id' => (string) ($preconsult['request_id'] ?? ''),
+            'profile_id' => $profileId,
+            'submission_id' => $submissionId,
+        ]);
+    } catch (Throwable $e) {
+        peakrackKycLog('warning', 'Unable to persist Alipay OAuth state, falling back to session', $clientId, 0, ['profile_id' => $profileId]);
+    }
     $_SESSION['peakrack_kyc_alipay'][$state] = [
         'client_id' => $clientId,
         'profile_id' => $profileId,
@@ -390,7 +400,26 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
     $language = peakrackKycClientLanguage($clientId);
     $state = (string) ($_GET['state'] ?? '');
     $authCode = trim((string) ($_GET['auth_code'] ?? ($_GET['app_auth_code'] ?? ($_GET['code'] ?? ''))));
-    $session = is_array($_SESSION['peakrack_kyc_alipay'][$state] ?? null) ? $_SESSION['peakrack_kyc_alipay'][$state] : [];
+    $stateId = 0;
+    $session = [];
+    try {
+        $storedState = peakrackKycGetOauthState('alipay_real_name_info', $clientId, $state);
+        if ($storedState) {
+            $stateId = (int) ($storedState->id ?? 0);
+            $session = [
+                'client_id' => (int) ($storedState->client_id ?? 0),
+                'profile_id' => (int) ($storedState->profile_id ?? 0),
+                'submission_id' => (int) ($storedState->submission_id ?? 0),
+                'verify_id' => (string) ($storedState->verify_id ?? ''),
+                'created_at' => strtotime((string) ($storedState->created_at ?? '')) ?: time(),
+            ];
+        }
+    } catch (Throwable $e) {
+        peakrackKycLog('warning', 'Unable to read Alipay OAuth state, checking session fallback', $clientId);
+    }
+    if (empty($session) && is_array($_SESSION['peakrack_kyc_alipay'][$state] ?? null)) {
+        $session = $_SESSION['peakrack_kyc_alipay'][$state];
+    }
 
     if ($state === '' || empty($session) || (int) ($session['client_id'] ?? 0) !== $clientId) {
         return ['success' => false, 'message' => $language === 'zh' ? '支付宝授权状态已失效，请重新发起实名验证。' : 'The Alipay authorization state is invalid or expired. Please start verification again.'];
@@ -407,6 +436,10 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
 
     $token = peakrackKycAlipayOauthToken($clientId, $authCode, $settings);
     if (empty($token['success'])) {
+        if ($stateId > 0) {
+            peakrackKycConsumeOauthState($stateId);
+        }
+        unset($_SESSION['peakrack_kyc_alipay'][$state]);
         return ['success' => false, 'message' => $language === 'zh' ? '支付宝授权令牌换取失败，请重新尝试。' : 'Unable to exchange the Alipay authorization code. Please try again.'];
     }
 
@@ -451,6 +484,9 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
     }
 
     unset($_SESSION['peakrack_kyc_alipay'][$state]);
+    if ($stateId > 0) {
+        peakrackKycConsumeOauthState($stateId);
+    }
     peakrackKycLog($success ? 'info' : 'warning', $success ? 'Client passed Alipay real-name KYC' : 'Client failed Alipay real-name KYC', $clientId, 0, [
         'profile_id' => $profileId,
         'code' => (string) ($result['code'] ?? ''),

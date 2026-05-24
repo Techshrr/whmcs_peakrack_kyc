@@ -6,7 +6,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 当前版本
 
-`1.1.0-dev`
+`1.2.0-dev`
 
 ## 功能
 
@@ -18,7 +18,8 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 提供产品、产品组、TLD 实名规则的后台新增、编辑、启用/停用和删除。
 - 支持腾讯云 FaceID `PhoneVerification` 手机号、姓名、身份证号三要素核验。
 - 支持支付宝实名信息验证，流程为 OpenAPI V3 预咨询、支付宝用户授权、回调换取授权令牌、咨询核验结果。
-- 已实现 `TencentPhoneThreeFactorProvider`、`AlipayRealNameInfoProvider` 和 `ManualReviewProvider`，并为后续 v1.1 路线预留 Provider 适配器。
+- 已实现 `TencentPhoneThreeFactorProvider`、`AlipayRealNameInfoProvider` 和 `ManualReviewProvider`，并为后续路线预留 Provider 适配器。
+- 支付宝授权回调 state 已持久化到数据库，避免只依赖 PHP session。
 - 支持个人、企业、海外护照、地址证明、营业执照、水电费账单等人工上传审核场景。
 - 可在下单前拦截未实名客户，也可允许先下单但禁止自动开通。
 - 实名驳回后可选择人工处理，或自动取消未付款 Pending 订单。
@@ -34,7 +35,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 范围说明
 
-`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，并已接入支付宝实名信息验证。支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API 仍为预留 Provider，在真实核验逻辑完成前不能选择启用。
+`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，并已接入支付宝实名信息验证。`develop/v1.2` 分支开始补强生产回调稳定性，首先将支付宝 OAuth state 改为数据库持久化。支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API 仍为预留 Provider，在真实核验逻辑完成前不能选择启用。
 
 ## 安装
 
@@ -119,6 +120,7 @@ attachments/peakrack_kyc_private/
 - `mod_peakrack_kyc_provider_logs`
 - `mod_peakrack_kyc_rules`
 - `mod_peakrack_kyc_audit_logs`
+- `mod_peakrack_kyc_oauth_states`
 
 停用插件不会删除数据表，以保留审计记录。迁移 SQL 位于 `database/mysql.sql` 和 `peakrack_kyc/database/mysql.sql`。
 
@@ -129,6 +131,7 @@ attachments/peakrack_kyc_private/
 - 使用测试模式提交腾讯云三要素核验。
 - 使用测试模式提交支付宝实名信息验证。
 - 在支付宝测试应用中配置授权回调白名单，实测 `preconsult -> 授权回调 -> token exchange -> consult`。
+- 确认缺少 `peakrack_kyc_alipay` session key 但 WHMCS 客户仍保持登录时，数据库 OAuth state 能正确匹配并在使用后清理。
 - 提交 JPG、PNG、PDF 人工实名材料。
 - 确认扩展名、MIME 和文件头不匹配的文件会被拒绝。
 - 后台执行通过、驳回、撤销、要求重新提交。

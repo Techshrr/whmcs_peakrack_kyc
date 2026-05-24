@@ -1,5 +1,11 @@
 # Upgrade Notes
 
+## 1.2.0-dev
+
+- Adds `mod_peakrack_kyc_oauth_states` for Alipay OAuth callback state persistence.
+- Open the addon page once after upload so `peakrackKycCreateTables()` can create the new table automatically.
+- If you use manual SQL deployment, apply `database/mysql.sql` before enabling Alipay real-name verification.
+
 ## 1.0.0
 
 Initial release.
