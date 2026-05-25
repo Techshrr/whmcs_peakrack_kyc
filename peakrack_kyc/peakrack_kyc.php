@@ -1165,6 +1165,11 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
         .prkyc-check.fail { border-color: #fecaca; background: #fef2f2; }
         .prkyc-detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
         .prkyc-detail-label { color: #667085; font-size: 12px; margin-bottom: 2px; }
+        .prkyc-details { border: 1px solid #e7eaee; border-radius: 6px; background: #fbfcfd; margin: 12px 0; }
+        .prkyc-details > summary { cursor: pointer; padding: 10px 12px; font-weight: 700; }
+        .prkyc-details-body { padding: 0 12px 12px; }
+        .prkyc-provider-config { border-left: 3px solid #d9dee3; padding: 10px 12px; margin: 12px 0; background: #fbfcfd; }
+        .prkyc-provider-config.is-hidden { display: none; }
         @media (max-width: 900px) { .prkyc-grid, .prkyc-rule-form, .prkyc-filters { grid-template-columns: 1fr; } .prkyc-header { display: block; } }
         @media (max-width: 900px) { .prkyc-provider-grid, .prkyc-system-grid, .prkyc-detail-grid { grid-template-columns: 1fr; } }
     </style>
@@ -1465,49 +1470,87 @@ function peakrack_kyc_render_rule_manager(array $rules, array $t): string
 function peakrack_kyc_render_provider_settings(array $settings, array $t): string
 {
     $providers = peakrackKycProviderCatalog();
+    $apiProvider = (string) ($settings['apiProvider'] ?? 'tencent_phone_three_factor');
+    $bankCardProvider = (string) ($settings['bankCardProvider'] ?? 'tencent');
+    $companyProvider = (string) ($settings['companyVerificationProvider'] ?? 'tencent');
+    $usesTencent = $apiProvider === 'tencent_phone_three_factor'
+        || (!empty($settings['bankCardEnabled']) && $bankCardProvider === 'tencent')
+        || (!empty($settings['companyVerificationEnabled']) && $companyProvider === 'tencent');
+    $usesAliyun = (!empty($settings['bankCardEnabled']) && $bankCardProvider === 'aliyun')
+        || (!empty($settings['companyVerificationEnabled']) && $companyProvider === 'aliyun');
+    $advancedOpen = !empty($settings['alipayFaceEnabled'])
+        || !empty($settings['bankCardEnabled'])
+        || !empty($settings['companyVerificationEnabled'])
+        || !empty($settings['legalFaceEnabled'])
+        || !empty($settings['overseasKycEnabled']);
     ob_start();
     ?>
     <div class="prkyc-card">
         <h2><?php echo peakrackKycE($t['provider_settings']); ?></h2>
         <div class="inner">
-            <div class="prkyc-provider-grid">
-                <?php foreach ($providers as $provider) { ?>
-                    <?php echo peakrack_kyc_provider_card($provider, $t); ?>
-                <?php } ?>
-            </div>
+            <details class="prkyc-details">
+                <summary><?php echo peakrackKycE($t['provider_catalog']); ?></summary>
+                <div class="prkyc-details-body">
+                    <div class="prkyc-provider-grid">
+                        <?php foreach ($providers as $provider) { ?>
+                            <?php echo peakrack_kyc_provider_card($provider, $t); ?>
+                        <?php } ?>
+                    </div>
+                </div>
+            </details>
+            <div class="prkyc-section-title"><?php echo peakrackKycE($t['interface_quick_setup']); ?></div>
             <div class="prkyc-grid">
                 <?php echo peakrack_kyc_api_provider_select($settings, $t); ?>
                 <?php echo peakrack_kyc_checkbox('apiTestMode', $settings['apiTestMode'], $t['test_mode']); ?>
                 <?php echo peakrack_kyc_field_number('apiTimeout', (string) $settings['apiTimeout'], $t['api_timeout']); ?>
             </div>
-            <hr>
-            <div class="prkyc-section-title"><?php echo peakrackKycE($t['tencent_settings']); ?></div>
-            <div class="prkyc-grid">
-                <?php echo peakrack_kyc_field_text('tencentSecretId', $settings['tencentSecretId'], 'Tencent SecretId'); ?>
-                <?php echo peakrack_kyc_field_password('tencentSecretKey', '', 'Tencent SecretKey', $t['secret_help']); ?>
-                <?php echo peakrack_kyc_field_text('tencentRegion', $settings['tencentRegion'], 'Tencent Region'); ?>
-                <?php echo peakrack_kyc_field_text('tencentEndpoint', $settings['tencentEndpoint'], 'Tencent Endpoint'); ?>
-                <?php echo peakrack_kyc_field_text('tencentVerifyMode', $settings['tencentVerifyMode'], 'Tencent VerifyMode'); ?>
-                <?php echo peakrack_kyc_field_text('tencentOcrEndpoint', (string) ($settings['tencentOcrEndpoint'] ?? ''), 'Tencent OCR Endpoint'); ?>
-                <?php echo peakrack_kyc_field_text('tencentOcrRegion', (string) ($settings['tencentOcrRegion'] ?? ''), 'Tencent OCR Region'); ?>
-            </div>
-            <hr>
-            <div class="prkyc-section-title"><?php echo peakrackKycE($t['alipay_real_name_settings']); ?></div>
-            <div class="prkyc-checks" style="margin-bottom:12px;">
-                <?php echo peakrack_kyc_checkbox('alipayRealNameEnabled', $settings['alipayRealNameEnabled'], $t['alipay_real_name_enabled']); ?>
-            </div>
-            <div class="prkyc-grid">
-                <?php echo peakrack_kyc_field_text('alipayAppId', $settings['alipayAppId'], 'Alipay AppID'); ?>
-                <?php echo peakrack_kyc_field_text('alipayApiBaseUrl', $settings['alipayApiBaseUrl'], $t['alipay_api_base_url']); ?>
-                <?php echo peakrack_kyc_field_text('alipayAuthUrl', $settings['alipayAuthUrl'], $t['alipay_auth_url']); ?>
-                <?php echo peakrack_kyc_field_text('alipayOauthScope', $settings['alipayOauthScope'], $t['alipay_oauth_scope']); ?>
-                <?php echo peakrack_kyc_field_text('alipayAuthSource', $settings['alipayAuthSource'], $t['alipay_auth_source']); ?>
-                <?php echo peakrack_kyc_field_text('alipayCertType', $settings['alipayCertType'], $t['alipay_cert_type']); ?>
-                <?php echo peakrack_kyc_field_text('alipayCallbackUrlDisplay', peakrackKycAlipayCallbackUrl(), $t['alipay_callback_url'], $t['alipay_callback_help'], true); ?>
-                <?php echo peakrack_kyc_field_secret_textarea('alipayPrivateKey', $t['alipay_private_key'], $t['secret_help']); ?>
-            </div>
-            <hr>
-            <div class="prkyc-section-title"><?php echo peakrackKycE($t['advanced_provider_settings']); ?></div>
+            <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['provider_display_help']); ?></p>
+
+            <details class="prkyc-details"<?php echo $usesTencent ? ' open' : ''; ?>>
+                <summary><?php echo peakrackKycE($t['tencent_settings']); ?></summary>
+                <div class="prkyc-details-body">
+                    <p class="prkyc-muted"><?php echo peakrackKycE($t['tencent_settings_help']); ?></p>
+                    <div class="prkyc-grid">
+                        <?php echo peakrack_kyc_field_text('tencentSecretId', $settings['tencentSecretId'], 'Tencent SecretId'); ?>
+                        <?php echo peakrack_kyc_field_password('tencentSecretKey', '', 'Tencent SecretKey', $t['secret_help']); ?>
+                        <?php echo peakrack_kyc_field_text('tencentRegion', $settings['tencentRegion'], 'Tencent Region'); ?>
+                        <?php echo peakrack_kyc_field_text('tencentEndpoint', $settings['tencentEndpoint'], 'Tencent Endpoint'); ?>
+                        <?php echo peakrack_kyc_field_text('tencentVerifyMode', $settings['tencentVerifyMode'], 'Tencent VerifyMode'); ?>
+                        <?php echo peakrack_kyc_field_text('tencentOcrEndpoint', (string) ($settings['tencentOcrEndpoint'] ?? ''), 'Tencent OCR Endpoint'); ?>
+                        <?php echo peakrack_kyc_field_text('tencentOcrRegion', (string) ($settings['tencentOcrRegion'] ?? ''), 'Tencent OCR Region'); ?>
+                    </div>
+                </div>
+            </details>
+
+            <details class="prkyc-details"<?php echo !empty($settings['alipayRealNameEnabled']) ? ' open' : ''; ?>>
+                <summary><?php echo peakrackKycE($t['alipay_real_name_settings']); ?></summary>
+                <div class="prkyc-details-body">
+                    <div class="prkyc-checks" style="margin-bottom:12px;">
+                        <?php echo peakrack_kyc_checkbox('alipayRealNameEnabled', $settings['alipayRealNameEnabled'], $t['alipay_real_name_enabled']); ?>
+                    </div>
+                    <div class="prkyc-grid">
+                        <?php echo peakrack_kyc_field_text('alipayAppId', $settings['alipayAppId'], 'Alipay AppID'); ?>
+                        <?php echo peakrack_kyc_field_text('alipayCallbackUrlDisplay', peakrackKycAlipayCallbackUrl(), $t['alipay_callback_url'], $t['alipay_callback_help'], true); ?>
+                    </div>
+                    <details class="prkyc-details">
+                        <summary><?php echo peakrackKycE($t['advanced_mapping']); ?></summary>
+                        <div class="prkyc-details-body">
+                            <div class="prkyc-grid">
+                                <?php echo peakrack_kyc_field_text('alipayApiBaseUrl', $settings['alipayApiBaseUrl'], $t['alipay_api_base_url']); ?>
+                                <?php echo peakrack_kyc_field_text('alipayAuthUrl', $settings['alipayAuthUrl'], $t['alipay_auth_url']); ?>
+                                <?php echo peakrack_kyc_field_text('alipayOauthScope', $settings['alipayOauthScope'], $t['alipay_oauth_scope']); ?>
+                                <?php echo peakrack_kyc_field_text('alipayAuthSource', $settings['alipayAuthSource'], $t['alipay_auth_source']); ?>
+                                <?php echo peakrack_kyc_field_text('alipayCertType', $settings['alipayCertType'], $t['alipay_cert_type']); ?>
+                                <?php echo peakrack_kyc_field_secret_textarea('alipayPrivateKey', $t['alipay_private_key'], $t['secret_help']); ?>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </details>
+
+            <details class="prkyc-details"<?php echo $advancedOpen ? ' open' : ''; ?>>
+                <summary><?php echo peakrackKycE($t['advanced_provider_settings']); ?></summary>
+                <div class="prkyc-details-body">
             <div class="prkyc-checks" style="margin-bottom:12px;">
                 <?php echo peakrack_kyc_checkbox('alipayFaceEnabled', (bool) ($settings['alipayFaceEnabled'] ?? false), $t['alipay_face_enabled']); ?>
                 <?php echo peakrack_kyc_checkbox('bankCardEnabled', (bool) ($settings['bankCardEnabled'] ?? false), $t['bank_card_enabled']); ?>
@@ -1524,34 +1567,57 @@ function peakrack_kyc_render_provider_settings(array $settings, array $t): strin
                 <?php echo peakrack_kyc_field_select('companyVerificationProvider', (string) ($settings['companyVerificationProvider'] ?? 'tencent'), $t['company_verification_provider'], ['tencent' => $t['provider_channel_tencent'], 'aliyun' => $t['provider_channel_aliyun']]); ?>
                 <?php echo peakrack_kyc_field_select('companyFactorMode', (string) ($settings['companyFactorMode'] ?? '4'), $t['company_factor_mode'], ['3' => $t['factor_three'], '4' => $t['factor_four']]); ?>
             </div>
-            <hr>
-            <div class="prkyc-section-title"><?php echo peakrackKycE($t['aliyun_marketplace_settings']); ?></div>
-            <div class="prkyc-grid">
-                <?php echo peakrack_kyc_field_text('aliyunBankCardEndpoint', (string) ($settings['aliyunBankCardEndpoint'] ?? ''), $t['aliyun_bank_card_endpoint']); ?>
-                <?php echo peakrack_kyc_field_password('aliyunBankCardAppCode', '', $t['aliyun_bank_card_appcode'], $t['secret_help']); ?>
-                <?php echo peakrack_kyc_field_select('aliyunBankCardMethod', (string) ($settings['aliyunBankCardMethod'] ?? 'POST'), $t['aliyun_method'], ['POST' => 'POST', 'GET' => 'GET']); ?>
-                <?php echo peakrack_kyc_field_select('aliyunBankCardContentType', (string) ($settings['aliyunBankCardContentType'] ?? 'form'), $t['aliyun_content_type'], ['form' => $t['content_type_form'], 'json' => $t['content_type_json']]); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardNameField', (string) ($settings['aliyunBankCardNameField'] ?? ''), $t['aliyun_name_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardIdField', (string) ($settings['aliyunBankCardIdField'] ?? ''), $t['aliyun_id_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardPhoneField', (string) ($settings['aliyunBankCardPhoneField'] ?? ''), $t['aliyun_phone_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardCardField', (string) ($settings['aliyunBankCardCardField'] ?? ''), $t['aliyun_bank_card_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardSuccessPath', (string) ($settings['aliyunBankCardSuccessPath'] ?? ''), $t['aliyun_success_path']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunBankCardSuccessValues', (string) ($settings['aliyunBankCardSuccessValues'] ?? ''), $t['aliyun_success_values']); ?>
-                <?php echo peakrack_kyc_field_textarea('aliyunBankCardExtraParams', (string) ($settings['aliyunBankCardExtraParams'] ?? ''), $t['aliyun_bank_card_extra_params']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanyEndpoint', (string) ($settings['aliyunCompanyEndpoint'] ?? ''), $t['aliyun_company_endpoint']); ?>
-                <?php echo peakrack_kyc_field_password('aliyunCompanyAppCode', '', $t['aliyun_company_appcode'], $t['secret_help']); ?>
-                <?php echo peakrack_kyc_field_select('aliyunCompanyMethod', (string) ($settings['aliyunCompanyMethod'] ?? 'POST'), $t['aliyun_method'], ['POST' => 'POST', 'GET' => 'GET']); ?>
-                <?php echo peakrack_kyc_field_select('aliyunCompanyContentType', (string) ($settings['aliyunCompanyContentType'] ?? 'form'), $t['aliyun_content_type'], ['form' => $t['content_type_form'], 'json' => $t['content_type_json']]); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanyNameField', (string) ($settings['aliyunCompanyNameField'] ?? ''), $t['aliyun_company_name_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanyCreditCodeField', (string) ($settings['aliyunCompanyCreditCodeField'] ?? ''), $t['aliyun_company_credit_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanyLegalNameField', (string) ($settings['aliyunCompanyLegalNameField'] ?? ''), $t['aliyun_legal_name_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanyLegalIdField', (string) ($settings['aliyunCompanyLegalIdField'] ?? ''), $t['aliyun_legal_id_field']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanySuccessPath', (string) ($settings['aliyunCompanySuccessPath'] ?? ''), $t['aliyun_success_path']); ?>
-                <?php echo peakrack_kyc_field_text('aliyunCompanySuccessValues', (string) ($settings['aliyunCompanySuccessValues'] ?? ''), $t['aliyun_success_values']); ?>
-                <?php echo peakrack_kyc_field_textarea('aliyunCompanyExtraParams', (string) ($settings['aliyunCompanyExtraParams'] ?? ''), $t['aliyun_company_extra_params']); ?>
+
+            <div class="prkyc-provider-config<?php echo $bankCardProvider === 'aliyun' ? '' : ' is-hidden'; ?>" data-prkyc-bank-provider="aliyun">
+                <div class="prkyc-section-title"><?php echo peakrackKycE($t['aliyun_bank_card_basic']); ?></div>
+                <div class="prkyc-grid">
+                    <?php echo peakrack_kyc_field_text('aliyunBankCardEndpoint', (string) ($settings['aliyunBankCardEndpoint'] ?? ''), $t['aliyun_bank_card_endpoint']); ?>
+                    <?php echo peakrack_kyc_field_password('aliyunBankCardAppCode', '', $t['aliyun_bank_card_appcode'], $t['secret_help']); ?>
+                </div>
+                <details class="prkyc-details">
+                    <summary><?php echo peakrackKycE($t['advanced_mapping']); ?></summary>
+                    <div class="prkyc-details-body">
+                        <div class="prkyc-grid">
+                            <?php echo peakrack_kyc_field_select('aliyunBankCardMethod', (string) ($settings['aliyunBankCardMethod'] ?? 'POST'), $t['aliyun_method'], ['POST' => 'POST', 'GET' => 'GET']); ?>
+                            <?php echo peakrack_kyc_field_select('aliyunBankCardContentType', (string) ($settings['aliyunBankCardContentType'] ?? 'form'), $t['aliyun_content_type'], ['form' => $t['content_type_form'], 'json' => $t['content_type_json']]); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardNameField', (string) ($settings['aliyunBankCardNameField'] ?? ''), $t['aliyun_name_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardIdField', (string) ($settings['aliyunBankCardIdField'] ?? ''), $t['aliyun_id_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardPhoneField', (string) ($settings['aliyunBankCardPhoneField'] ?? ''), $t['aliyun_phone_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardCardField', (string) ($settings['aliyunBankCardCardField'] ?? ''), $t['aliyun_bank_card_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardSuccessPath', (string) ($settings['aliyunBankCardSuccessPath'] ?? ''), $t['aliyun_success_path']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunBankCardSuccessValues', (string) ($settings['aliyunBankCardSuccessValues'] ?? ''), $t['aliyun_success_values']); ?>
+                            <?php echo peakrack_kyc_field_textarea('aliyunBankCardExtraParams', (string) ($settings['aliyunBankCardExtraParams'] ?? ''), $t['aliyun_bank_card_extra_params']); ?>
+                        </div>
+                    </div>
+                </details>
             </div>
-            <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['aliyun_marketplace_help']); ?></p>
-            <hr>
+
+            <div class="prkyc-provider-config<?php echo $companyProvider === 'aliyun' ? '' : ' is-hidden'; ?>" data-prkyc-company-provider="aliyun">
+                <div class="prkyc-section-title"><?php echo peakrackKycE($t['aliyun_company_basic']); ?></div>
+                <div class="prkyc-grid">
+                    <?php echo peakrack_kyc_field_text('aliyunCompanyEndpoint', (string) ($settings['aliyunCompanyEndpoint'] ?? ''), $t['aliyun_company_endpoint']); ?>
+                    <?php echo peakrack_kyc_field_password('aliyunCompanyAppCode', '', $t['aliyun_company_appcode'], $t['secret_help']); ?>
+                </div>
+                <details class="prkyc-details">
+                    <summary><?php echo peakrackKycE($t['advanced_mapping']); ?></summary>
+                    <div class="prkyc-details-body">
+                        <div class="prkyc-grid">
+                            <?php echo peakrack_kyc_field_select('aliyunCompanyMethod', (string) ($settings['aliyunCompanyMethod'] ?? 'POST'), $t['aliyun_method'], ['POST' => 'POST', 'GET' => 'GET']); ?>
+                            <?php echo peakrack_kyc_field_select('aliyunCompanyContentType', (string) ($settings['aliyunCompanyContentType'] ?? 'form'), $t['aliyun_content_type'], ['form' => $t['content_type_form'], 'json' => $t['content_type_json']]); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanyNameField', (string) ($settings['aliyunCompanyNameField'] ?? ''), $t['aliyun_company_name_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanyCreditCodeField', (string) ($settings['aliyunCompanyCreditCodeField'] ?? ''), $t['aliyun_company_credit_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanyLegalNameField', (string) ($settings['aliyunCompanyLegalNameField'] ?? ''), $t['aliyun_legal_name_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanyLegalIdField', (string) ($settings['aliyunCompanyLegalIdField'] ?? ''), $t['aliyun_legal_id_field']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanySuccessPath', (string) ($settings['aliyunCompanySuccessPath'] ?? ''), $t['aliyun_success_path']); ?>
+                            <?php echo peakrack_kyc_field_text('aliyunCompanySuccessValues', (string) ($settings['aliyunCompanySuccessValues'] ?? ''), $t['aliyun_success_values']); ?>
+                            <?php echo peakrack_kyc_field_textarea('aliyunCompanyExtraParams', (string) ($settings['aliyunCompanyExtraParams'] ?? ''), $t['aliyun_company_extra_params']); ?>
+                        </div>
+                    </div>
+                </details>
+            </div>
+            <?php if ($usesAliyun) { ?><p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['aliyun_marketplace_help']); ?></p><?php } ?>
+
+            <div class="prkyc-section-title"><?php echo peakrackKycE($t['overseas_kyc_settings']); ?></div>
             <div class="prkyc-grid">
                 <?php echo peakrack_kyc_field_text('overseasKycEndpoint', (string) ($settings['overseasKycEndpoint'] ?? ''), $t['overseas_kyc_endpoint']); ?>
                 <?php echo peakrack_kyc_field_text('overseasKycAuthHeader', (string) ($settings['overseasKycAuthHeader'] ?? ''), $t['overseas_kyc_auth_header']); ?>
@@ -1561,8 +1627,30 @@ function peakrack_kyc_render_provider_settings(array $settings, array $t): strin
                 <?php echo peakrack_kyc_field_text('overseasKycSuccessValue', (string) ($settings['overseasKycSuccessValue'] ?? ''), $t['overseas_kyc_success_value']); ?>
             </div>
             <p class="prkyc-muted" style="margin:8px 0 0;"><?php echo peakrackKycE($t['advanced_provider_help']); ?></p>
+                </div>
+            </details>
         </div>
     </div>
+    <script>
+    (function () {
+        function toggleProvider(selectName, attrName) {
+            var select = document.querySelector('select[name="' + selectName + '"]');
+            var targets = document.querySelectorAll('[' + attrName + ']');
+            if (!select || !targets.length) {
+                return;
+            }
+            function apply() {
+                targets.forEach(function (target) {
+                    target.classList.toggle('is-hidden', target.getAttribute(attrName) !== select.value);
+                });
+            }
+            select.addEventListener('change', apply);
+            apply();
+        }
+        toggleProvider('bankCardProvider', 'data-prkyc-bank-provider');
+        toggleProvider('companyVerificationProvider', 'data-prkyc-company-provider');
+    }());
+    </script>
     <?php
     return (string) ob_get_clean();
 }
@@ -1928,6 +2016,9 @@ function peakrack_kyc_admin_texts(string $language): array
             'rule_settings' => 'KYC Rules and Storage',
             'rule_manager' => 'Product / Product Group / TLD Rules',
             'provider_settings' => 'Provider Settings',
+            'provider_catalog' => 'Provider Status Catalog',
+            'interface_quick_setup' => 'Primary API and Routing',
+            'provider_display_help' => 'Choose the active channel first. Only the selected Tencent or Aliyun fields stay visible; request mappings are kept under advanced sections.',
             'email_settings' => 'Email Notifications',
             'enabled' => 'Enable module',
             'manual_review' => 'Manual review',
@@ -2001,11 +2092,12 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_manual_desc' => 'Manual upload and admin review for individual, company, passport, and address-proof workflows.',
             'provider_alipay_real_name_desc' => 'Alipay real-name information matching through preconsult, user authorization, and consult callback.',
             'provider_alipay_desc' => 'Alipay identity verification initialize, certify redirect, and query flow for face-based real-name checks.',
-            'provider_bank_card_desc' => 'Tencent Cloud bank-card three/four-factor checks for name, ID, card number, and optional phone.',
-            'provider_company_desc' => 'Tencent Cloud company four-factor verification for business name, credit code, legal representative, and legal representative ID.',
+            'provider_bank_card_desc' => 'Bank-card three/four-factor checks with selectable Tencent Cloud or Aliyun Marketplace AppCode channels.',
+            'provider_company_desc' => 'Company element verification with selectable Tencent Cloud or Aliyun Marketplace AppCode channels.',
             'provider_overseas_desc' => 'Configurable JSON adapter for overseas KYC APIs such as passport, address proof, sanctions, and liveness providers.',
             'provider_reserved_desc' => 'Reserved for a later provider adapter; runtime verification is not enabled yet.',
             'tencent_settings' => 'Tencent PhoneVerification',
+            'tencent_settings_help' => 'Used by Tencent phone three-factor verification, and by bank-card or company verification when Tencent Cloud is selected.',
             'alipay_real_name_settings' => 'Alipay Real-Name Information Verification',
             'alipay_real_name_enabled' => 'Enable Alipay real-name information verification',
             'alipay_api_base_url' => 'Alipay OpenAPI base URL',
@@ -2017,7 +2109,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'alipay_callback_help' => 'Add this URL to the Alipay application authorization callback whitelist.',
             'alipay_private_key' => 'Alipay app private key',
             'advanced_provider_settings' => 'Advanced Provider Settings',
-            'advanced_provider_help' => 'Bank-card and company verification use Tencent Cloud signed API calls. Alipay face uses the classic Alipay identity verification initialize/certify/query flow. Overseas KYC is a configurable JSON API adapter.',
+            'advanced_provider_help' => 'Bank-card and company verification can use Tencent Cloud signed API calls or Aliyun Marketplace AppCode products. Alipay face uses the classic Alipay identity verification initialize/certify/query flow. Overseas KYC is a configurable JSON API adapter.',
+            'advanced_mapping' => 'Advanced request mapping',
             'alipay_face_enabled' => 'Enable Alipay face verification',
             'alipay_face_gateway_url' => 'Alipay face gateway URL',
             'alipay_face_biz_code' => 'Alipay face biz code',
@@ -2033,6 +2126,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_channel_aliyun' => 'Aliyun Marketplace AppCode',
             'aliyun_marketplace_settings' => 'Aliyun Marketplace AppCode Settings',
             'aliyun_marketplace_help' => 'Aliyun Marketplace APIs differ by product. Configure the endpoint, AppCode, request field names, and the JSON path/value that means verification passed.',
+            'aliyun_bank_card_basic' => 'Aliyun bank-card API',
+            'aliyun_company_basic' => 'Aliyun company API',
             'aliyun_bank_card_endpoint' => 'Aliyun bank-card endpoint',
             'aliyun_bank_card_appcode' => 'Aliyun bank-card AppCode',
             'aliyun_company_endpoint' => 'Aliyun company endpoint',
@@ -2054,6 +2149,7 @@ function peakrack_kyc_admin_texts(string $language): array
             'aliyun_bank_card_extra_params' => 'Aliyun bank-card extra JSON params',
             'aliyun_company_extra_params' => 'Aliyun company extra JSON params',
             'overseas_kyc_enabled' => 'Enable overseas KYC API adapter',
+            'overseas_kyc_settings' => 'Overseas KYC API',
             'overseas_kyc_endpoint' => 'Overseas KYC endpoint',
             'overseas_kyc_auth_header' => 'Overseas KYC auth header',
             'overseas_kyc_api_key' => 'Overseas KYC API key',
@@ -2106,6 +2202,9 @@ function peakrack_kyc_admin_texts(string $language): array
             'rule_settings' => '实名规则与存储',
             'rule_manager' => '产品 / 产品组 / TLD 规则',
             'provider_settings' => 'Provider 设置',
+            'provider_catalog' => 'Provider 状态预览',
+            'interface_quick_setup' => '主要接口与通道',
+            'provider_display_help' => '先选择实际使用的通道，页面只展开对应的腾讯云或阿里云必填项；字段映射和成功码保留在高级配置里。',
             'email_settings' => '邮件通知',
             'enabled' => '启用模块',
             'manual_review' => '人工审核',
@@ -2179,11 +2278,12 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_manual_desc' => '人工上传和后台审核，覆盖个人、企业、护照和地址证明流程。',
             'provider_alipay_real_name_desc' => '支付宝实名信息验证：预咨询录入证件信息，用户授权后查询是否与支付宝实名信息一致。',
             'provider_alipay_desc' => '支付宝身份验证 initialize、certify 跳转和 query 查询流程，用于人脸实名核验。',
-            'provider_bank_card_desc' => '腾讯云银行卡三/四要素核验，支持姓名、身份证、银行卡号和手机号组合。',
-            'provider_company_desc' => '腾讯云企业四要素核验，校验企业名称、统一社会信用代码、法人姓名和法人证件号。',
+            'provider_bank_card_desc' => '银行卡三/四要素核验，可在腾讯云和阿里云云市场 AppCode 通道之间切换。',
+            'provider_company_desc' => '企业要素核验，可在腾讯云和阿里云云市场 AppCode 通道之间切换。',
             'provider_overseas_desc' => '可配置 JSON 适配器，用于接入海外 KYC API，例如护照、地址证明、制裁名单和活体检测。',
             'provider_reserved_desc' => '预留给后续 Provider 适配器，目前不启用运行核验。',
             'tencent_settings' => '腾讯云三要素',
+            'tencent_settings_help' => '用于腾讯云手机号三要素；银行卡或企业核验选择腾讯云时也使用这里的密钥和区域配置。',
             'alipay_real_name_settings' => '支付宝实名信息验证',
             'alipay_real_name_enabled' => '启用支付宝实名信息验证',
             'alipay_api_base_url' => '支付宝 OpenAPI 地址',
@@ -2195,7 +2295,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'alipay_callback_help' => '请把这个地址填写到支付宝应用的授权回调地址白名单里。',
             'alipay_private_key' => '支付宝应用私钥',
             'advanced_provider_settings' => '高级 Provider 设置',
-            'advanced_provider_help' => '银行卡和企业要素核验使用腾讯云签名 API；支付宝人脸实名使用支付宝身份验证 initialize/certify/query 流程；海外 KYC 为可配置 JSON API 适配器。',
+            'advanced_provider_help' => '银行卡和企业要素核验可使用腾讯云签名 API，也可使用阿里云云市场 AppCode 商品；支付宝人脸实名使用支付宝身份验证 initialize/certify/query 流程；海外 KYC 为可配置 JSON API 适配器。',
+            'advanced_mapping' => '高级请求映射',
             'alipay_face_enabled' => '启用支付宝人脸实名',
             'alipay_face_gateway_url' => '支付宝人脸网关地址',
             'alipay_face_biz_code' => '支付宝人脸 biz_code',
@@ -2211,6 +2312,8 @@ function peakrack_kyc_admin_texts(string $language): array
             'provider_channel_aliyun' => '阿里云云市场 AppCode',
             'aliyun_marketplace_settings' => '阿里云云市场 AppCode 设置',
             'aliyun_marketplace_help' => '阿里云市场 API 商品的地址、字段名和成功码不完全一致。这里可以配置 Endpoint、AppCode、请求字段名，以及表示核验通过的 JSON 路径和值。',
+            'aliyun_bank_card_basic' => '阿里云银行卡接口',
+            'aliyun_company_basic' => '阿里云企业接口',
             'aliyun_bank_card_endpoint' => '阿里云银行卡接口地址',
             'aliyun_bank_card_appcode' => '阿里云银行卡 AppCode',
             'aliyun_company_endpoint' => '阿里云企业接口地址',
@@ -2232,6 +2335,7 @@ function peakrack_kyc_admin_texts(string $language): array
             'aliyun_bank_card_extra_params' => '阿里云银行卡额外 JSON 参数',
             'aliyun_company_extra_params' => '阿里云企业额外 JSON 参数',
             'overseas_kyc_enabled' => '启用海外 KYC API 适配',
+            'overseas_kyc_settings' => '海外 KYC API',
             'overseas_kyc_endpoint' => '海外 KYC 接口地址',
             'overseas_kyc_auth_header' => '海外 KYC 鉴权 Header',
             'overseas_kyc_api_key' => '海外 KYC API Key',
