@@ -1,39 +1,46 @@
 # Changelog
 
-## 1.2.0-dev - Unreleased
+All notable changes to this project are documented in this file.
 
-- Started the v1.2 branch on `develop/v1.2`.
-- Added database-backed OAuth state storage for Alipay authorization callbacks, with session fallback for older in-flight callbacks.
-- Added OAuth state cleanup to retention cleanup and documented the new `mod_peakrack_kyc_oauth_states` table.
-- Added a storage backend selector with local private storage active today and S3/S3-compatible configuration saved for a later storage adapter.
-- Added advanced provider flows for Alipay face verification, Tencent bank-card three/four-factor verification, Tencent company four-factor verification, legal-representative face verification, and configurable overseas KYC JSON APIs.
-- Added selectable Tencent Cloud / Aliyun Marketplace AppCode channels for bank-card and company verification so administrators can switch providers without code changes.
-- Simplified the admin provider settings UI so the active provider channel shows only required fields by default, with provider catalog and request mappings collapsed into advanced sections.
-- Promoted TLD-level rules as part of the production enforcement path for cart and order checks.
-- Hardened system checks so Tencent, Aliyun bank-card, and Aliyun company credential warnings follow the selected provider channels instead of assuming every API path uses Tencent.
-- Added timeout handling for Alipay face callback state and safer UTF-8 download filenames for administrator document downloads.
+This project follows Semantic Versioning where practical.
+
+## [1.2.0-dev] - Unreleased
+
+### Added
+
+- Added database-backed OAuth state storage for Alipay authorization callbacks.
+- Added a storage backend selector with local private storage active and S3-compatible settings reserved for a later adapter.
+- Added provider flows for Alipay face verification, Tencent bank-card factors, Tencent company factors, legal-representative face verification, and configurable overseas KYC JSON APIs.
+- Added selectable Tencent Cloud and Aliyun Marketplace AppCode channels for bank-card and company verification.
+- Added TLD-level enforcement rules for cart and order checks.
+
+### Changed
+
+- Simplified provider settings so the active provider channel shows required fields first.
+- Updated system checks so provider credential warnings follow the selected channels.
+- Updated English and Chinese documentation for the current provider matrix, storage status, release packaging, security notes, and testing checklist.
+
+### Security
+
+- Added timeout handling for Alipay face callback state.
+- Added safer UTF-8 download filenames for administrator document downloads.
 - Added defensive redaction before API attempt responses are stored.
-- Updated English and Chinese documentation for the current v1.2 provider matrix, S3 reserved status, release packaging, security notes, and testing checklist.
 
-## 1.1.0-dev - Unreleased
+## [1.1.0-dev] - Unreleased
 
-- Started the v1.1 provider framework on `develop/v1.1`.
-- Added a provider catalog so admin UI, settings validation, and provider instantiation use one source of truth.
+### Added
+
+- Added the provider catalog and provider framework.
 - Added reserved provider adapter classes for Alipay face verification, bank-card multi-factor verification, company verification, and overseas KYC.
-- Replaced the hidden Tencent-only API provider field with a real provider selector that shows available and reserved providers safely.
-- Added an admin profile detail view with profile summary, document downloads, submission summaries, provider logs, audit logs, and state actions.
-- Added an admin system checks card for PHP version, cURL, OpenSSL, Fileinfo, private storage, storage guard files, and Tencent credential readiness.
-- Expanded default WHMCS KYC customer email templates with bilingual content, profile metadata, status fields, reason fields, and KYC center links.
-- Added a safe refresh option for bundled PeakRack email templates so existing templates are only overwritten when the administrator opts in.
-- Added a manual retention-cleanup button in the admin UI.
-- Added `AlipayRealNameInfoProvider` with OpenAPI V3 preconsult, OAuth callback, token exchange, consult result handling, admin settings, system checks, and client-area submission flow.
+- Added an admin profile detail view, system checks card, richer bilingual email templates, safe template refresh, manual retention cleanup, and Alipay real-name information verification flow.
 
-## 1.0.0 - 2026-05-22
+### Changed
+
+- Replaced the hidden Tencent-only API provider field with a provider selector.
+
+## [1.0.0] - 2026-05-22
+
+### Added
 
 - Initial PeakRack KYC addon package.
-- Added WHMCS addon lifecycle, admin settings, review queue, and client-area verification center.
-- Added Tencent Cloud FaceID `PhoneVerification` provider.
-- Added manual upload review for individual, corporate, overseas passport, address proof, business license, and utility bill workflows.
-- Added product-level checkout and provisioning enforcement.
-- Added private upload storage protections, sensitive field hashing, bilingual text, logs, API attempt records, and retention cleanup.
-- Refined v1.0 architecture with provider classes, submissions, provider logs, rule table, audit logs, product group/TLD rule support, email notification wrappers, review actions, non-rendered saved secrets, MIME validation, and document deletion.
+- Added WHMCS addon lifecycle, admin settings, review queue, client-area verification center, Tencent Cloud FaceID phone verification, manual upload review, product-level checkout and provisioning enforcement, private upload storage protections, sensitive field hashing, bilingual text, logs, API attempt records, and retention cleanup.

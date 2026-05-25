@@ -1,15 +1,47 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Composer
 /vendor/
-/node_modules/
-/.idea/
-/.vscode/
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
 *.log
+logs/
+storage/logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.old
+
+# Local packages
+/dist/
+/dist-commercial/
+/build/
+/release/
 *.zip
+*.tar
 *.tar.gz
-*.sql
-!database/*.sql
-!peakrack_kyc/database/*.sql
-*.sqlite
+
+# WHMCS sensitive/runtime files
 configuration.php
+configuration.php.back
 attachments/
-storage/
-peakrack_kyc_private/
+downloads/
+templates_c/
+crons/
+*.sql
+*.sql.gz

@@ -1,5 +1,8 @@
 # PeakRack KYC for WHMCS
 
+> 官方仓库：https://github.com/Techshrr/whmcs_peakrack_kyc
+> 许可证：Proprietary License
+
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证件上传、人工审核、腾讯云手机号三要素核验，以及按产品、产品组或 TLD 强制实名。
@@ -187,3 +190,9 @@ attachments/peakrack_kyc_private/
 - 配置允许先下单模式，确认 `PreModuleCreate` 阻止自动开通。
 - 驳回未付款 Pending 订单，确认可选取消策略生效。
 - 确认已付款但未实名订单只通知管理员人工处理，不自动退款。
+
+## 许可证
+
+本项目基于 Proprietary License 发布。完整许可证请查看 [LICENSE](LICENSE)。
+
+其他项目声明请查看 [NOTICE](NOTICE)。

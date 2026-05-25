@@ -1,4 +1,7 @@
-﻿# PeakRack KYC for WHMCS
+# PeakRack KYC for WHMCS
+
+> Official repository: https://github.com/Techshrr/whmcs_peakrack_kyc
+> License: Proprietary License
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
@@ -254,3 +257,9 @@ For release builds, also compare the source package against `modules/addons/peak
 - Reject an unpaid pending order and confirm optional cancellation behavior.
 - Confirm paid pending orders are logged for manual handling and no automatic refund is attempted.
 - Run `DailyCronJob` cleanup or call retention cleanup in a staging environment.
+
+## License
+
+This project is licensed under the Proprietary License. See [LICENSE](LICENSE) for details.
+
+Additional project notices are available in [NOTICE](NOTICE).

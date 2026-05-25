@@ -1,17 +1,35 @@
 # Security Policy
 
-Do not publish customer identity documents, WHMCS `configuration.php`, API credentials, database dumps, or encoded commercial build secrets in this repository.
+## Reporting a vulnerability
 
-KYC uploads should be stored outside the public web root whenever possible. If the default attachment path is used, confirm web server rules block direct access.
+Please do not open public GitHub issues for security vulnerabilities.
 
-Document downloads must stay behind the addon controller. Do not expose the private storage directory through Nginx, Apache aliases, CDN rules, or WHMCS public download paths.
+Report security issues to:
 
-Clients must not receive original document URLs. They may only see document metadata and can delete non-verified uploads through the authenticated client-area form.
+security@peakrack.com
 
-Provider secrets must not be rendered back into admin forms. Leave secret fields blank to keep the stored value. Do not copy real SecretKeys, AppCodes, private keys, or object storage credentials into screenshots, issue comments, module logs, or WHMCS activity logs.
+Please include:
 
-API request and response logging should remain redacted. Full ID numbers, passport numbers, mobile numbers, bank cards, tokens, signatures, and private keys must not be stored in provider logs or audit logs.
+- Affected project and version
+- Description of the issue
+- Steps to reproduce
+- Potential impact
+- Suggested mitigation, if available
 
-S3/S3-compatible settings can be saved in the admin UI for a later storage adapter, but the current build still stores and serves uploaded documents through the local private storage path. Do not assume S3 lifecycle or bucket policy controls protect current uploads until the storage adapter is enabled and tested.
+## Supported versions
 
-Report security issues privately to PeakRack before public disclosure.
+| Version | Supported |
+|---|---|
+| 1.2.x | Yes |
+| < 1.0 | No |
+
+## Sensitive data
+
+Do not include real customer data, production API keys, payment secrets, database credentials, WHMCS license information, identity documents, private signing keys, or server passwords in reports.
+For proprietary KYC or risk projects, do not include real identity documents, customer names, phone numbers, ID numbers, passports, production risk rules, bypass methods, provider credentials, or review exports in public reports.
+
+## Public issues
+
+General bugs and feature requests may be submitted through GitHub Issues.
+
+Security vulnerabilities must be reported privately by email.
