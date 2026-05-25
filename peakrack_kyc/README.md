@@ -26,4 +26,4 @@ Admin document downloads go through the addon controller and require a WHMCS adm
 Default WHMCS customer email templates can be installed from the admin Email Notifications card.
 The bundled templates include bilingual customer-facing content and KYC merge fields. Existing PeakRack templates are refreshed only when the administrator selects the refresh option.
 
-The v1.2 development branch keeps the provider framework, adds database-backed OAuth state storage for Alipay callbacks, and exposes advanced provider flows for Alipay face, bank-card factors, company factors, legal-representative face verification, and configurable overseas KYC APIs.
+The v1.2 development branch keeps the provider framework, adds database-backed OAuth state storage for Alipay callbacks, and exposes advanced provider flows for Alipay face, bank-card factors, company factors, legal-representative face verification, and configurable overseas KYC APIs. Bank-card and company verification can be switched between Tencent Cloud and Aliyun Marketplace AppCode channels in the admin UI.

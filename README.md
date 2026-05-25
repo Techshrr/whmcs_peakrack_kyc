@@ -19,7 +19,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Supports Chinese mainland mobile number, name, and ID number three-factor verification through Tencent Cloud FaceID `PhoneVerification`.
 - Supports Alipay real-name information verification through OpenAPI V3 preconsult, Alipay user authorization, and consult callback.
 - Supports Alipay face/identity verification through initialize, certify redirect, and query callbacks.
-- Supports Tencent Cloud bank-card three/four-factor verification and Tencent OCR company four-factor verification.
+- Supports selectable Tencent Cloud or Aliyun Marketplace AppCode channels for bank-card three/four-factor verification and company element verification.
 - Provides a configurable overseas KYC JSON API adapter for passport/document providers that expose server-side HTTP APIs.
 - Separates providers behind a common `verify()`, `getName()`, and `getConfigFields()` interface.
 - Implements `TencentPhoneThreeFactorProvider`, `AlipayRealNameInfoProvider`, `AlipayFaceProvider`, `BankCardProvider`, `CompanyVerificationProvider`, `OverseasKycProvider`, and `ManualReviewProvider`.

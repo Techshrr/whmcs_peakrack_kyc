@@ -7,6 +7,7 @@
 - Added OAuth state cleanup to retention cleanup and documented the new `mod_peakrack_kyc_oauth_states` table.
 - Added a storage backend selector with local private storage active today and S3/S3-compatible configuration saved for a later storage adapter.
 - Added advanced provider flows for Alipay face verification, Tencent bank-card three/four-factor verification, Tencent company four-factor verification, legal-representative face verification, and configurable overseas KYC JSON APIs.
+- Added selectable Tencent Cloud / Aliyun Marketplace AppCode channels for bank-card and company verification so administrators can switch providers without code changes.
 - Promoted TLD-level rules as part of the production enforcement path for cart and order checks.
 
 ## 1.1.0-dev - Unreleased

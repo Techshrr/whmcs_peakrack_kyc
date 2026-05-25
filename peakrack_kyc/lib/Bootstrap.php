@@ -72,10 +72,34 @@ if (!function_exists('peakrackKycDefaults')) {
             'alipayFaceGatewayUrl' => 'https://openapi.alipay.com/gateway.do',
             'alipayFaceBizCode' => 'FACE',
             'bankCardEnabled' => false,
+            'bankCardProvider' => 'tencent',
             'bankCardFactorMode' => '4',
             'bankCardCertType' => '0',
+            'aliyunBankCardEndpoint' => '',
+            'aliyunBankCardAppCode' => '',
+            'aliyunBankCardMethod' => 'POST',
+            'aliyunBankCardContentType' => 'form',
+            'aliyunBankCardNameField' => 'name',
+            'aliyunBankCardIdField' => 'idcard',
+            'aliyunBankCardPhoneField' => 'mobile',
+            'aliyunBankCardCardField' => 'bankcard',
+            'aliyunBankCardSuccessPath' => 'code',
+            'aliyunBankCardSuccessValues' => '0,1,200,success,true,101',
+            'aliyunBankCardExtraParams' => '',
             'companyVerificationEnabled' => false,
+            'companyVerificationProvider' => 'tencent',
             'companyFactorMode' => '4',
+            'aliyunCompanyEndpoint' => '',
+            'aliyunCompanyAppCode' => '',
+            'aliyunCompanyMethod' => 'POST',
+            'aliyunCompanyContentType' => 'form',
+            'aliyunCompanyNameField' => 'entname',
+            'aliyunCompanyCreditCodeField' => 'entmark',
+            'aliyunCompanyLegalNameField' => 'realname',
+            'aliyunCompanyLegalIdField' => 'idcard',
+            'aliyunCompanySuccessPath' => 'code',
+            'aliyunCompanySuccessValues' => '0,1,200,success,true',
+            'aliyunCompanyExtraParams' => '',
             'tencentOcrEndpoint' => 'ocr.tencentcloudapi.com',
             'tencentOcrRegion' => 'ap-guangzhou',
             'legalFaceEnabled' => false,
@@ -468,8 +492,14 @@ if (!function_exists('peakrackKycMergeSettings')) {
             : (!empty($settings['checkoutBlockEnabled']) ? 'block' : 'allow_pending');
         $settings['apiTimeout'] = peakrackKycClampInt($settings['apiTimeout'] ?? $defaults['apiTimeout'], 3, 60, (int) $defaults['apiTimeout']);
         $settings['apiTestMode'] = peakrackKycBool($settings['apiTestMode'] ?? $defaults['apiTestMode']);
+        $settings['bankCardProvider'] = in_array((string) ($settings['bankCardProvider'] ?? ''), ['tencent', 'aliyun'], true) ? (string) $settings['bankCardProvider'] : 'tencent';
+        $settings['companyVerificationProvider'] = in_array((string) ($settings['companyVerificationProvider'] ?? ''), ['tencent', 'aliyun'], true) ? (string) $settings['companyVerificationProvider'] : 'tencent';
         $settings['bankCardFactorMode'] = in_array((string) ($settings['bankCardFactorMode'] ?? ''), ['3', '4'], true) ? (string) $settings['bankCardFactorMode'] : '4';
         $settings['companyFactorMode'] = in_array((string) ($settings['companyFactorMode'] ?? ''), ['3', '4'], true) ? (string) $settings['companyFactorMode'] : '4';
+        $settings['aliyunBankCardMethod'] = in_array(strtoupper((string) ($settings['aliyunBankCardMethod'] ?? 'POST')), ['POST', 'GET'], true) ? strtoupper((string) $settings['aliyunBankCardMethod']) : 'POST';
+        $settings['aliyunCompanyMethod'] = in_array(strtoupper((string) ($settings['aliyunCompanyMethod'] ?? 'POST')), ['POST', 'GET'], true) ? strtoupper((string) $settings['aliyunCompanyMethod']) : 'POST';
+        $settings['aliyunBankCardContentType'] = in_array((string) ($settings['aliyunBankCardContentType'] ?? ''), ['form', 'json'], true) ? (string) $settings['aliyunBankCardContentType'] : 'form';
+        $settings['aliyunCompanyContentType'] = in_array((string) ($settings['aliyunCompanyContentType'] ?? ''), ['form', 'json'], true) ? (string) $settings['aliyunCompanyContentType'] : 'form';
         $settings['maxUploadMb'] = peakrackKycClampInt($settings['maxUploadMb'] ?? $defaults['maxUploadMb'], 1, 64, (int) $defaults['maxUploadMb']);
         $settings['retentionDays'] = peakrackKycClampInt($settings['retentionDays'] ?? $defaults['retentionDays'], 0, 3650, (int) $defaults['retentionDays']);
         $settings['maxLogs'] = peakrackKycClampInt($settings['maxLogs'] ?? $defaults['maxLogs'], 0, 1000000, (int) $defaults['maxLogs']);
@@ -485,7 +515,7 @@ if (!function_exists('peakrackKycMergeSettings')) {
             ? (string) $settings['storageBackend']
             : 'local';
 
-        foreach (['tencentSecretId', 'tencentSecretKey', 'tencentRegion', 'tencentEndpoint', 'tencentVerifyMode', 'tencentOcrEndpoint', 'tencentOcrRegion', 'bankCardCertType', 'alipayAppId', 'alipayPrivateKey', 'alipayApiBaseUrl', 'alipayAuthUrl', 'alipayOauthScope', 'alipayAuthSource', 'alipayCertType', 'alipayFaceGatewayUrl', 'alipayFaceBizCode', 'overseasKycEndpoint', 'overseasKycAuthHeader', 'overseasKycApiKey', 'overseasKycApiSecret', 'overseasKycSuccessPath', 'overseasKycSuccessValue', 'storagePath', 's3Bucket', 's3Region', 's3Endpoint', 's3Prefix', 's3AccessKeyId', 's3SecretAccessKey', 's3ServerSideEncryption', 'emailTemplateSubmitted', 'emailTemplateApproved', 'emailTemplateRejected'] as $key) {
+        foreach (['tencentSecretId', 'tencentSecretKey', 'tencentRegion', 'tencentEndpoint', 'tencentVerifyMode', 'tencentOcrEndpoint', 'tencentOcrRegion', 'bankCardCertType', 'aliyunBankCardEndpoint', 'aliyunBankCardAppCode', 'aliyunBankCardNameField', 'aliyunBankCardIdField', 'aliyunBankCardPhoneField', 'aliyunBankCardCardField', 'aliyunBankCardSuccessPath', 'aliyunBankCardSuccessValues', 'aliyunBankCardExtraParams', 'aliyunCompanyEndpoint', 'aliyunCompanyAppCode', 'aliyunCompanyNameField', 'aliyunCompanyCreditCodeField', 'aliyunCompanyLegalNameField', 'aliyunCompanyLegalIdField', 'aliyunCompanySuccessPath', 'aliyunCompanySuccessValues', 'aliyunCompanyExtraParams', 'alipayAppId', 'alipayPrivateKey', 'alipayApiBaseUrl', 'alipayAuthUrl', 'alipayOauthScope', 'alipayAuthSource', 'alipayCertType', 'alipayFaceGatewayUrl', 'alipayFaceBizCode', 'overseasKycEndpoint', 'overseasKycAuthHeader', 'overseasKycApiKey', 'overseasKycApiSecret', 'overseasKycSuccessPath', 'overseasKycSuccessValue', 'storagePath', 's3Bucket', 's3Region', 's3Endpoint', 's3Prefix', 's3AccessKeyId', 's3SecretAccessKey', 's3ServerSideEncryption', 'emailTemplateSubmitted', 'emailTemplateApproved', 'emailTemplateRejected'] as $key) {
             $settings[$key] = trim((string) ($settings[$key] ?? ''));
         }
 
@@ -524,6 +554,11 @@ if (!function_exists('peakrackKycMergeSettings')) {
         }
         if ($settings['overseasKycSuccessValue'] === '') {
             $settings['overseasKycSuccessValue'] = $defaults['overseasKycSuccessValue'];
+        }
+        foreach (['aliyunBankCardNameField', 'aliyunBankCardIdField', 'aliyunBankCardPhoneField', 'aliyunBankCardCardField', 'aliyunBankCardSuccessPath', 'aliyunBankCardSuccessValues', 'aliyunCompanyNameField', 'aliyunCompanyCreditCodeField', 'aliyunCompanyLegalNameField', 'aliyunCompanyLegalIdField', 'aliyunCompanySuccessPath', 'aliyunCompanySuccessValues'] as $key) {
+            if ($settings[$key] === '') {
+                $settings[$key] = $defaults[$key];
+            }
         }
         if ($settings['alipayAuthUrl'] === '') {
             $settings['alipayAuthUrl'] = $defaults['alipayAuthUrl'];
@@ -1476,6 +1511,138 @@ if (!function_exists('peakrackKycTencentCompanyVerify')) {
     }
 }
 
+if (!function_exists('peakrackKycAliyunBankCardVerify')) {
+    function peakrackKycAliyunBankCardVerify(int $clientId, string $realName, string $idNumber, string $phone, string $bankCard, array $settings): array
+    {
+        if (empty($settings['bankCardEnabled'])) {
+            return ['success' => false, 'code' => 'disabled', 'message' => 'Bank-card verification is disabled.'];
+        }
+
+        $factorMode = (string) ($settings['bankCardFactorMode'] ?? '4');
+        if ($realName === '' || $idNumber === '' || $bankCard === '' || ($factorMode === '4' && $phone === '')) {
+            return ['success' => false, 'code' => 'missing_fields', 'message' => 'Bank-card verification fields are incomplete.'];
+        }
+
+        $payload = [
+            (string) ($settings['aliyunBankCardNameField'] ?? 'name') => $realName,
+            (string) ($settings['aliyunBankCardIdField'] ?? 'idcard') => $idNumber,
+            (string) ($settings['aliyunBankCardCardField'] ?? 'bankcard') => $bankCard,
+        ];
+        if ($phone !== '') {
+            $payload[(string) ($settings['aliyunBankCardPhoneField'] ?? 'mobile')] = $phone;
+        }
+        $extra = peakrackKycJsonDecode((string) ($settings['aliyunBankCardExtraParams'] ?? ''), []);
+        if (is_array($extra)) {
+            $payload = array_merge($payload, $extra);
+        }
+
+        $result = peakrackKycAliyunAppCodeVerify('bank_card_multi_factor', $clientId, $payload, [
+            'endpoint' => (string) ($settings['aliyunBankCardEndpoint'] ?? ''),
+            'app_code' => (string) ($settings['aliyunBankCardAppCode'] ?? ''),
+            'method' => (string) ($settings['aliyunBankCardMethod'] ?? 'POST'),
+            'content_type' => (string) ($settings['aliyunBankCardContentType'] ?? 'form'),
+            'success_path' => (string) ($settings['aliyunBankCardSuccessPath'] ?? 'code'),
+            'success_values' => (string) ($settings['aliyunBankCardSuccessValues'] ?? '0,1,200,success,true,101'),
+        ], (int) ($settings['apiTimeout'] ?? 15));
+        $result['provider_channel'] = 'aliyun';
+
+        return $result;
+    }
+}
+
+if (!function_exists('peakrackKycAliyunCompanyVerify')) {
+    function peakrackKycAliyunCompanyVerify(int $clientId, string $companyName, string $creditCode, string $legalPersonName, string $legalPersonId, array $settings): array
+    {
+        if (empty($settings['companyVerificationEnabled'])) {
+            return ['success' => false, 'code' => 'disabled', 'message' => 'Company verification is disabled.'];
+        }
+
+        if ($companyName === '' || $creditCode === '' || $legalPersonName === '' || $legalPersonId === '') {
+            return ['success' => false, 'code' => 'missing_fields', 'message' => 'Company verification fields are incomplete.'];
+        }
+
+        $payload = [
+            (string) ($settings['aliyunCompanyNameField'] ?? 'entname') => $companyName,
+            (string) ($settings['aliyunCompanyCreditCodeField'] ?? 'entmark') => $creditCode,
+            (string) ($settings['aliyunCompanyLegalNameField'] ?? 'realname') => $legalPersonName,
+            (string) ($settings['aliyunCompanyLegalIdField'] ?? 'idcard') => $legalPersonId,
+        ];
+        $extra = peakrackKycJsonDecode((string) ($settings['aliyunCompanyExtraParams'] ?? ''), []);
+        if (is_array($extra)) {
+            $payload = array_merge($payload, $extra);
+        }
+
+        $result = peakrackKycAliyunAppCodeVerify('company_verification', $clientId, $payload, [
+            'endpoint' => (string) ($settings['aliyunCompanyEndpoint'] ?? ''),
+            'app_code' => (string) ($settings['aliyunCompanyAppCode'] ?? ''),
+            'method' => (string) ($settings['aliyunCompanyMethod'] ?? 'POST'),
+            'content_type' => (string) ($settings['aliyunCompanyContentType'] ?? 'form'),
+            'success_path' => (string) ($settings['aliyunCompanySuccessPath'] ?? 'code'),
+            'success_values' => (string) ($settings['aliyunCompanySuccessValues'] ?? '0,1,200,success,true'),
+        ], (int) ($settings['apiTimeout'] ?? 15));
+        $result['provider_channel'] = 'aliyun';
+
+        return $result;
+    }
+}
+
+if (!function_exists('peakrackKycAliyunAppCodeVerify')) {
+    function peakrackKycAliyunAppCodeVerify(string $provider, int $clientId, array $payload, array $config, int $timeout): array
+    {
+        $endpoint = trim((string) ($config['endpoint'] ?? ''));
+        $appCode = trim((string) ($config['app_code'] ?? ''));
+        if ($endpoint === '' || $appCode === '') {
+            return ['success' => false, 'code' => 'missing_aliyun_config', 'message' => 'Aliyun endpoint or AppCode is not configured.'];
+        }
+
+        $method = strtoupper((string) ($config['method'] ?? 'POST'));
+        $contentType = (string) ($config['content_type'] ?? 'form');
+        $headers = [
+            'Authorization: APPCODE ' . $appCode,
+            'Accept: application/json',
+        ];
+
+        $url = $endpoint;
+        $body = '';
+        if ($method === 'GET') {
+            $url .= (str_contains($url, '?') ? '&' : '?') . http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
+        } elseif ($contentType === 'json') {
+            $body = peakrackKycJsonEncode($payload);
+            $headers[] = 'Content-Type: application/json; charset=utf-8';
+        } else {
+            $body = http_build_query($payload, '', '&', PHP_QUERY_RFC3986);
+            $headers[] = 'Content-Type: application/x-www-form-urlencoded; charset=utf-8';
+        }
+
+        $response = peakrackKycHttpRequest($method, $url, $body, $headers, $timeout);
+        $decoded = peakrackKycJsonDecode((string) ($response['body'] ?? ''), []);
+        $successPath = trim((string) ($config['success_path'] ?? 'code'));
+        $actual = is_array($decoded) ? peakrackKycArrayPathValue($decoded, $successPath) : null;
+        $successValues = peakrackKycCsvValues((string) ($config['success_values'] ?? '0,1,success,true'));
+        $success = !empty($response['success']) && peakrackKycValueMatches($actual, $successValues);
+        $requestId = (string) ($decoded['request_id'] ?? ($decoded['requestId'] ?? ($decoded['RequestId'] ?? '')));
+        $code = (string) ($decoded['code'] ?? ($decoded['Code'] ?? ($decoded['status'] ?? ($actual ?? ($success ? 'success' : 'failed')))));
+        $message = (string) ($decoded['message'] ?? ($decoded['Message'] ?? ($decoded['msg'] ?? ($response['message'] ?? 'Aliyun AppCode request completed.'))));
+
+        peakrackKycRecordApiAttempt($clientId, $provider, $success ? 'passed' : 'failed', $code, $requestId, [
+            'description' => $message,
+            'request_id' => $requestId,
+            'provider_channel' => 'aliyun',
+            'success_path' => $successPath,
+            'actual_value' => is_scalar($actual) ? (string) $actual : '',
+            'http_status' => (int) ($response['status'] ?? 0),
+        ]);
+
+        return [
+            'success' => $success,
+            'code' => $code,
+            'message' => $message,
+            'request_id' => $requestId,
+            'raw' => is_array($decoded) ? $decoded : [],
+        ];
+    }
+}
+
 if (!function_exists('peakrackKycHttpPost')) {
     function peakrackKycHttpPost(string $url, string $payload, array $headers, int $timeout): array
     {
@@ -1637,6 +1804,39 @@ if (!function_exists('peakrackKycArrayPathValue')) {
         }
 
         return $current;
+    }
+}
+
+if (!function_exists('peakrackKycCsvValues')) {
+    function peakrackKycCsvValues(string $value): array
+    {
+        $items = [];
+        foreach (explode(',', $value) as $item) {
+            $item = trim($item);
+            if ($item !== '') {
+                $items[] = $item;
+            }
+        }
+
+        return $items;
+    }
+}
+
+if (!function_exists('peakrackKycValueMatches')) {
+    function peakrackKycValueMatches($actual, array $expected): bool
+    {
+        if (empty($expected)) {
+            return false;
+        }
+
+        $actualString = is_bool($actual) ? ($actual ? 'true' : 'false') : trim((string) $actual);
+        foreach ($expected as $value) {
+            if (strcasecmp($actualString, trim((string) $value)) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 
@@ -3079,11 +3279,17 @@ if (!function_exists('peakrackKycSystemChecks')) {
             && trim((string) ($settings['s3AccessKeyId'] ?? '')) !== ''
             && trim((string) ($settings['s3SecretAccessKey'] ?? '')) !== '';
         $advancedWarnings = [];
-        if (!empty($settings['bankCardEnabled']) && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
-            $advancedWarnings[] = 'Bank-card verification needs Tencent credentials.';
+        if (!empty($settings['bankCardEnabled']) && (string) ($settings['bankCardProvider'] ?? 'tencent') === 'tencent' && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
+            $advancedWarnings[] = 'Bank-card Tencent verification needs Tencent credentials.';
         }
-        if (!empty($settings['companyVerificationEnabled']) && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
-            $advancedWarnings[] = 'Company verification needs Tencent credentials.';
+        if (!empty($settings['bankCardEnabled']) && (string) ($settings['bankCardProvider'] ?? 'tencent') === 'aliyun' && ((string) ($settings['aliyunBankCardEndpoint'] ?? '') === '' || (string) ($settings['aliyunBankCardAppCode'] ?? '') === '')) {
+            $advancedWarnings[] = 'Bank-card Aliyun verification needs endpoint and AppCode.';
+        }
+        if (!empty($settings['companyVerificationEnabled']) && (string) ($settings['companyVerificationProvider'] ?? 'tencent') === 'tencent' && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
+            $advancedWarnings[] = 'Company Tencent verification needs Tencent credentials.';
+        }
+        if (!empty($settings['companyVerificationEnabled']) && (string) ($settings['companyVerificationProvider'] ?? 'tencent') === 'aliyun' && ((string) ($settings['aliyunCompanyEndpoint'] ?? '') === '' || (string) ($settings['aliyunCompanyAppCode'] ?? '') === '')) {
+            $advancedWarnings[] = 'Company Aliyun verification needs endpoint and AppCode.';
         }
         if ((!empty($settings['alipayFaceEnabled']) || !empty($settings['legalFaceEnabled'])) && ((string) ($settings['alipayAppId'] ?? '') === '' || (string) ($settings['alipayPrivateKey'] ?? '') === '')) {
             $advancedWarnings[] = 'Alipay face verification needs Alipay AppID and private key.';

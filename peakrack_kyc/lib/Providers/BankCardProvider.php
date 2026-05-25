@@ -13,8 +13,11 @@ class BankCardProvider implements ProviderInterface
     {
         return [
             'bankCardEnabled',
+            'bankCardProvider',
             'bankCardFactorMode',
             'bankCardCertType',
+            'aliyunBankCardEndpoint',
+            'aliyunBankCardAppCode',
             'tencentSecretId',
             'tencentSecretKey',
             'tencentRegion',
@@ -25,6 +28,17 @@ class BankCardProvider implements ProviderInterface
 
     public function verify(array $payload, array $settings): array
     {
+        if (($settings['bankCardProvider'] ?? 'tencent') === 'aliyun') {
+            return \peakrackKycAliyunBankCardVerify(
+                (int) ($payload['client_id'] ?? 0),
+                (string) ($payload['real_name'] ?? ''),
+                (string) ($payload['id_number'] ?? ''),
+                (string) ($payload['phone'] ?? ''),
+                (string) ($payload['bank_card'] ?? ''),
+                $settings
+            );
+        }
+
         return \peakrackKycTencentBankCardVerify(
             (int) ($payload['client_id'] ?? 0),
             (string) ($payload['real_name'] ?? ''),

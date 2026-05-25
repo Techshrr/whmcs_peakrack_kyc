@@ -13,7 +13,10 @@ class CompanyVerificationProvider implements ProviderInterface
     {
         return [
             'companyVerificationEnabled',
+            'companyVerificationProvider',
             'companyFactorMode',
+            'aliyunCompanyEndpoint',
+            'aliyunCompanyAppCode',
             'tencentSecretId',
             'tencentSecretKey',
             'tencentOcrRegion',
@@ -24,6 +27,17 @@ class CompanyVerificationProvider implements ProviderInterface
 
     public function verify(array $payload, array $settings): array
     {
+        if (($settings['companyVerificationProvider'] ?? 'tencent') === 'aliyun') {
+            return \peakrackKycAliyunCompanyVerify(
+                (int) ($payload['client_id'] ?? 0),
+                (string) ($payload['company_name'] ?? ''),
+                (string) ($payload['registration_number'] ?? ''),
+                (string) ($payload['legal_person_name'] ?? ''),
+                (string) ($payload['legal_person_id'] ?? ''),
+                $settings
+            );
+        }
+
         return \peakrackKycTencentCompanyVerify(
             (int) ($payload['client_id'] ?? 0),
             (string) ($payload['company_name'] ?? ''),
