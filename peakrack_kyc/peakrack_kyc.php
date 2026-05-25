@@ -850,6 +850,14 @@ function peakrack_kyc_handle_alipay_face_callback(int $clientId, array $settings
         return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名状态已失效，请重新发起。' : 'The Alipay face verification state is invalid or expired. Please start again.'];
     }
 
+    if ((int) ($session['created_at'] ?? 0) < time() - 1800) {
+        unset($_SESSION['peakrack_kyc_alipay_face'][$state]);
+        if ($stateId > 0) {
+            peakrackKycConsumeOauthState($stateId);
+        }
+        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名已超时，请重新发起。' : 'The Alipay face verification timed out. Please start again.'];
+    }
+
     $result = peakrackKycProvider('alipay_face')->verify([
         'client_id' => $clientId,
         'certify_id' => (string) ($session['certify_id'] ?? ''),

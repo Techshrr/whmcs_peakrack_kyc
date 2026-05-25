@@ -5,6 +5,8 @@
 - Adds `mod_peakrack_kyc_oauth_states` for Alipay OAuth callback state persistence.
 - Open the addon page once after upload so `peakrackKycCreateTables()` can create the new table automatically.
 - If you use manual SQL deployment, apply `database/mysql.sql` before enabling Alipay real-name verification.
+- Adds visible S3/S3-compatible settings for later storage-adapter rollout. Uploads still use local private storage in this build.
+- Adds advanced providers for Alipay face, bank-card factors, company factors, legal-representative face, and overseas KYC APIs. Keep them disabled until credentials and test-mode/sandbox calls are verified.
 
 ## 1.0.0
 
@@ -29,7 +31,7 @@ Then activate **PeakRack KYC** under `System Settings > Addon Modules`.
 5. Review the new advanced provider settings before enabling Alipay face, bank-card, company, legal-representative face, or overseas KYC flows.
 6. If `S3 / S3-compatible` is selected, keep the local private storage path configured. In this build S3 settings are saved for future use, but uploads still use local private storage.
 7. For bank-card and company verification, choose either Tencent Cloud or Aliyun Marketplace AppCode. Aliyun Marketplace products vary by field names and response shape, so configure the field mapping and success JSON path/value before enabling live calls.
-5. Run `php -l` on the addon PHP files before publishing to production.
+8. Run `php -l` on the addon PHP files before publishing to production.
 
 ### Data Safety
 

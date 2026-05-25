@@ -10,6 +10,10 @@
 - Added selectable Tencent Cloud / Aliyun Marketplace AppCode channels for bank-card and company verification so administrators can switch providers without code changes.
 - Simplified the admin provider settings UI so the active provider channel shows only required fields by default, with provider catalog and request mappings collapsed into advanced sections.
 - Promoted TLD-level rules as part of the production enforcement path for cart and order checks.
+- Hardened system checks so Tencent, Aliyun bank-card, and Aliyun company credential warnings follow the selected provider channels instead of assuming every API path uses Tencent.
+- Added timeout handling for Alipay face callback state and safer UTF-8 download filenames for administrator document downloads.
+- Added defensive redaction before API attempt responses are stored.
+- Updated English and Chinese documentation for the current v1.2 provider matrix, S3 reserved status, release packaging, security notes, and testing checklist.
 
 ## 1.1.0-dev - Unreleased
 

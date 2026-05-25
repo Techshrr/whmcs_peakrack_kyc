@@ -4,9 +4,9 @@ Recommended release layout:
 
 ```text
 dist/
-  peakrack_kyc-v1.0.0-source.zip
-  peakrack_kyc-v1.0.0-ioncube-php82.zip
-  peakrack_kyc-v1.0.0-ioncube-php83.zip
+  peakrack_kyc-v1.2.0-source.zip
+  peakrack_kyc-v1.2.0-ioncube-php82.zip
+  peakrack_kyc-v1.2.0-ioncube-php83.zip
 ```
 
 Source package contents:
@@ -18,6 +18,7 @@ peakrack_kyc/
   lib/
   lang/
   templates/
+  database/
   README.md
   README.zh-CN.md
   UPGRADE.md

@@ -2576,16 +2576,17 @@ if (!function_exists('peakrackKycApplyRejectedOrderPolicy')) {
 if (!function_exists('peakrackKycRecordApiAttempt')) {
     function peakrackKycRecordApiAttempt(int $clientId, string $provider, string $status, string $resultCode, string $requestId, array $response): void
     {
+        $safeResponse = peakrackKycRedactApiResponse($response);
         try {
             Capsule::table(PRKYC_API_ATTEMPTS_TABLE)->insert([
                 'client_id' => $clientId,
                 'provider' => $provider,
                 'status' => $status,
                 'result_code' => $resultCode !== '' ? substr($resultCode, 0, 80) : null,
-                'description' => isset($response['description']) ? substr((string) $response['description'], 0, 255) : null,
-                'isp' => isset($response['isp']) ? substr((string) $response['isp'], 0, 80) : null,
+                'description' => isset($safeResponse['description']) ? substr((string) $safeResponse['description'], 0, 255) : null,
+                'isp' => isset($safeResponse['isp']) ? substr((string) $safeResponse['isp'], 0, 80) : null,
                 'request_id' => $requestId !== '' ? substr($requestId, 0, 120) : null,
-                'response_json' => peakrackKycJsonEncode($response),
+                'response_json' => peakrackKycJsonEncode($safeResponse),
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
         } catch (Throwable $e) {
@@ -3278,17 +3279,28 @@ if (!function_exists('peakrackKycSystemChecks')) {
             && trim((string) ($settings['s3Region'] ?? '')) !== ''
             && trim((string) ($settings['s3AccessKeyId'] ?? '')) !== ''
             && trim((string) ($settings['s3SecretAccessKey'] ?? '')) !== '';
+        $primaryApiProvider = (string) ($settings['apiProvider'] ?? 'tencent_phone_three_factor');
+        $primaryApiEnabled = !empty($settings['apiVerificationEnabled']);
+        $primaryBankCardEnabled = $primaryApiEnabled && $primaryApiProvider === 'bank_card_multi_factor';
+        $bankCardRuntimeEnabled = !empty($settings['bankCardEnabled']) || $primaryBankCardEnabled;
+        $companyRuntimeEnabled = !empty($settings['companyVerificationEnabled']);
+        $bankCardProvider = (string) ($settings['bankCardProvider'] ?? 'tencent');
+        $companyProvider = (string) ($settings['companyVerificationProvider'] ?? 'tencent');
+        $tencentCredentialsReady = (string) ($settings['tencentSecretId'] ?? '') !== '' && (string) ($settings['tencentSecretKey'] ?? '') !== '';
+        $tencentRequired = ($primaryApiEnabled && $primaryApiProvider === 'tencent_phone_three_factor')
+            || ($bankCardRuntimeEnabled && $bankCardProvider === 'tencent')
+            || ($companyRuntimeEnabled && $companyProvider === 'tencent');
         $advancedWarnings = [];
-        if (!empty($settings['bankCardEnabled']) && (string) ($settings['bankCardProvider'] ?? 'tencent') === 'tencent' && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
+        if ($bankCardRuntimeEnabled && $bankCardProvider === 'tencent' && !$tencentCredentialsReady) {
             $advancedWarnings[] = 'Bank-card Tencent verification needs Tencent credentials.';
         }
-        if (!empty($settings['bankCardEnabled']) && (string) ($settings['bankCardProvider'] ?? 'tencent') === 'aliyun' && ((string) ($settings['aliyunBankCardEndpoint'] ?? '') === '' || (string) ($settings['aliyunBankCardAppCode'] ?? '') === '')) {
+        if ($bankCardRuntimeEnabled && $bankCardProvider === 'aliyun' && ((string) ($settings['aliyunBankCardEndpoint'] ?? '') === '' || (string) ($settings['aliyunBankCardAppCode'] ?? '') === '')) {
             $advancedWarnings[] = 'Bank-card Aliyun verification needs endpoint and AppCode.';
         }
-        if (!empty($settings['companyVerificationEnabled']) && (string) ($settings['companyVerificationProvider'] ?? 'tencent') === 'tencent' && ((string) ($settings['tencentSecretId'] ?? '') === '' || (string) ($settings['tencentSecretKey'] ?? '') === '')) {
+        if ($companyRuntimeEnabled && $companyProvider === 'tencent' && !$tencentCredentialsReady) {
             $advancedWarnings[] = 'Company Tencent verification needs Tencent credentials.';
         }
-        if (!empty($settings['companyVerificationEnabled']) && (string) ($settings['companyVerificationProvider'] ?? 'tencent') === 'aliyun' && ((string) ($settings['aliyunCompanyEndpoint'] ?? '') === '' || (string) ($settings['aliyunCompanyAppCode'] ?? '') === '')) {
+        if ($companyRuntimeEnabled && $companyProvider === 'aliyun' && ((string) ($settings['aliyunCompanyEndpoint'] ?? '') === '' || (string) ($settings['aliyunCompanyAppCode'] ?? '') === '')) {
             $advancedWarnings[] = 'Company Aliyun verification needs endpoint and AppCode.';
         }
         if ((!empty($settings['alipayFaceEnabled']) || !empty($settings['legalFaceEnabled'])) && ((string) ($settings['alipayAppId'] ?? '') === '' || (string) ($settings['alipayPrivateKey'] ?? '') === '')) {
@@ -3346,8 +3358,8 @@ if (!function_exists('peakrackKycSystemChecks')) {
             [
                 'key' => 'tencent_credentials',
                 'label_key' => 'check_tencent_credentials',
-                'status' => empty($settings['apiVerificationEnabled']) || ((string) ($settings['tencentSecretId'] ?? '') !== '' && (string) ($settings['tencentSecretKey'] ?? '') !== '') ? 'ok' : 'warn',
-                'message' => empty($settings['apiVerificationEnabled']) ? 'API verification is disabled.' : 'Tencent credentials are required when API verification is enabled.',
+                'status' => !$tencentRequired || $tencentCredentialsReady ? 'ok' : 'warn',
+                'message' => !$tencentRequired ? 'Tencent credentials are not required by the selected providers.' : 'Tencent credentials are required by the selected providers.',
             ],
             [
                 'key' => 'alipay_credentials',
@@ -3393,9 +3405,15 @@ if (!function_exists('peakrackKycStreamDocument')) {
         }
 
         $downloadName = (string) ($document->original_name ?? ('document-' . $documentId));
+        $safeDownloadName = peakrackKycSanitizeFilename($downloadName);
+        $asciiDownloadName = preg_replace('/[^A-Za-z0-9._-]+/', '_', $safeDownloadName);
+        $asciiDownloadName = trim((string) $asciiDownloadName, '._-');
+        if ($asciiDownloadName === '') {
+            $asciiDownloadName = 'document-' . $documentId;
+        }
         header('Content-Type: application/octet-stream');
         header('Content-Length: ' . filesize((string) $document->storage_path));
-        header('Content-Disposition: attachment; filename="' . str_replace('"', '', $downloadName) . '"');
+        header('Content-Disposition: attachment; filename="' . str_replace('"', '', $asciiDownloadName) . '"; filename*=UTF-8\'\'' . rawurlencode($safeDownloadName));
         header('X-Content-Type-Options: nosniff');
         readfile((string) $document->storage_path);
         exit;

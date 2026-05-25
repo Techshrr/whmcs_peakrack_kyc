@@ -18,7 +18,13 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 提供产品、产品组、TLD 实名规则的后台新增、编辑、启用/停用和删除。
 - 支持腾讯云 FaceID `PhoneVerification` 手机号、姓名、身份证号三要素核验。
 - 支持支付宝实名信息验证，流程为 OpenAPI V3 预咨询、支付宝用户授权、回调换取授权令牌、咨询核验结果。
-- 已实现 `TencentPhoneThreeFactorProvider`、`AlipayRealNameInfoProvider` 和 `ManualReviewProvider`，并为后续路线预留 Provider 适配器。
+- 支持支付宝人脸实名，包含初始化、跳转认证和回调后查询结果。
+- 支持银行卡三/四/多要素核验，并可在后台选择腾讯云或阿里云市场 AppCode 通道。
+- 支持企业要素核验，并可在后台选择腾讯云或阿里云市场 AppCode 通道。
+- 支持法人人脸核验流程。
+- 支持可配置的海外 KYC JSON API 适配，用于护照、地址证明、公司文件等国际业务场景。
+- 后台 Provider 配置保持精简：先选择实际启用通道，只有需要定制字段映射和响应判断时才展开高级配置。
+- 已实现 `TencentPhoneThreeFactorProvider`、`AlipayRealNameInfoProvider`、`AlipayFaceProvider`、`BankCardProvider`、`CompanyVerificationProvider`、`OverseasKycProvider` 和 `ManualReviewProvider`。
 - 支付宝授权回调 state 已持久化到数据库，避免只依赖 PHP session。
 - 支持个人、企业、海外护照、地址证明、营业执照、水电费账单等人工上传审核场景。
 - 可在下单前拦截未实名客户，也可允许先下单但禁止自动开通。
@@ -28,6 +34,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 - 已存在的 PeakRack 默认模板只有在管理员勾选刷新选项时才会被覆盖。
 - 后台支持手动执行保留清理，用于清理旧审计日志、API 日志，以及已经标记删除且超过保留期的文件记录和物理文件。
 - 上传文件使用私有目录、随机文件名、扩展名校验、MIME 校验和文件头校验。
+- 后台可保存本地私有存储和 S3/S3 兼容存储配置；当前版本实际上传下载仍使用本地私有路径，S3 适配器留作后续启用。
 - 后台下载证件必须经过 WHMCS 管理员会话和 token 校验。
 - 客户不能下载原始证件文件，但可删除自己未通过/待审核的上传材料。
 - 敏感号码只保存加盐哈希和后四位展示值，不保存明文。
@@ -35,7 +42,7 @@ PeakRack KYC 是一个 WHMCS 实名认证插件，用于客户实名中心、证
 
 ## 范围说明
 
-`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，并已接入支付宝实名信息验证。`develop/v1.2` 分支开始补强生产回调稳定性，首先将支付宝 OAuth state 改为数据库持久化。支付宝人脸、银行卡多要素、法人人脸/企业核验、海外 KYC API 仍为预留 Provider，在真实核验逻辑完成前不能选择启用。
+`1.0.0` 已冻结在 `release/v1.0.0` 分支和 `v1.0.0` 标签。`develop/v1.1` 分支开始建设 Provider 框架，并已接入支付宝实名信息验证。`develop/v1.2` 分支补强生产回调稳定性，新增可见的存储后端预配置，并开放支付宝人脸、银行卡要素、企业要素、法人人脸、海外 KYC API 和 TLD 规则相关的高级 Provider 层。
 
 ## 安装
 
@@ -87,6 +94,34 @@ Addons > PeakRack KYC
 - `Alipay authorization URL`，默认 `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm`
 - 将后台显示的回调地址加入支付宝应用授权回调白名单
 
+### 支付宝人脸实名 / 法人人脸
+
+用于支付宝人脸实名和法人人脸核验。客户提交姓名和中国大陆身份证号后，插件初始化支付宝认证、跳转支付宝完成认证，并在回调后查询认证结果。
+
+需要配置：
+
+- `Alipay AppID`
+- `Alipay app private key`
+- `Alipay face gateway URL`
+- `Alipay face biz code`
+- 将后台显示的回调地址加入支付宝应用回调白名单
+
+### 银行卡多要素
+
+用于银行卡三/四/多要素核验。后台可以选择腾讯云或阿里云市场 AppCode 通道。
+
+腾讯云通道使用共用的 Tencent SecretId、SecretKey、Region 和接口地址。阿里云市场通道使用购买接口对应的 Endpoint 和 AppCode；由于不同市场商品字段和响应结构不同，后台提供请求字段名、额外 JSON 参数、成功 JSON 路径和成功值配置。
+
+### 企业要素核验
+
+用于企业三/四要素等企业信息核验。后台可以选择腾讯云或阿里云市场 AppCode 通道。
+
+腾讯云通道使用共用腾讯云密钥和企业/OCR 接口配置。阿里云市场通道使用 Endpoint、AppCode、字段映射、额外 JSON 参数、成功 JSON 路径和成功值配置。
+
+### 海外 KYC API
+
+用于接入提供服务端 JSON HTTP API 的国际 KYC 服务商。后台可配置 Endpoint、授权请求头、API Key/Secret、成功 JSON 路径和成功值。生产启用前需要先确认所购服务商的请求字段、回调或响应协议。
+
 ## 文件安全
 
 默认文件存储路径：
@@ -99,6 +134,8 @@ attachments/peakrack_kyc_private/
 
 管理员下载证件只能通过插件控制器完成，并要求 WHMCS 管理员会话和有效 token。客户前台只显示文件名、状态和上传时间，不提供原始文件下载。
 
+后台可以预先保存 S3/S3 兼容存储配置，方便后续启用对象存储适配器。当前版本即使保存了 S3 配置，上传和下载仍使用本地私有存储路径。
+
 ## 邮件模板
 
 后台 Email Notifications 区域可以安装默认 WHMCS 邮件模板：
@@ -108,6 +145,7 @@ attachments/peakrack_kyc_private/
 - `PeakRack KYC Rejected`
 
 安装器不会覆盖已有模板，并会自动写入对应模板配置。
+只有勾选 **刷新已存在的 PeakRack 模板** 时，插件才会用内置模板覆盖已有 PeakRack KYC 模板标题和正文。
 
 ## 数据表
 
@@ -132,6 +170,11 @@ attachments/peakrack_kyc_private/
 - 使用测试模式提交支付宝实名信息验证。
 - 在支付宝测试应用中配置授权回调白名单，实测 `preconsult -> 授权回调 -> token exchange -> consult`。
 - 确认缺少 `peakrack_kyc_alipay` session key 但 WHMCS 客户仍保持登录时，数据库 OAuth state 能正确匹配并在使用后清理。
+- 使用测试模式提交支付宝人脸实名；生产前需用支付宝测试应用实测真实回调链路。
+- 如需开放银行卡核验，分别测试腾讯云通道和阿里云市场通道。
+- 如需开放企业核验，分别测试腾讯云通道和阿里云市场通道。
+- 海外 KYC API 只在服务商沙箱或自建测试端点中确认字段映射后再启用。
+- 确认系统检查只对当前选择 Provider 所需的密钥发出告警。
 - 提交 JPG、PNG、PDF 人工实名材料。
 - 确认扩展名、MIME 和文件头不匹配的文件会被拒绝。
 - 后台执行通过、驳回、撤销、要求重新提交。

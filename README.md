@@ -45,7 +45,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Scope Notes
 
-Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch started the provider framework and implemented Alipay real-name information verification. The `develop/v1.2` branch hardens production callback handling, adds visible storage backend preparation, and begins the advanced provider layer for Alipay face verification, bank-card factors, company factors, legal-representative face verification, overseas KYC API adapters, and TLD enforcement rules.
+Version 1.0.0 is frozen on the `release/v1.0.0` branch and `v1.0.0` tag. The `develop/v1.1` branch started the provider framework and implemented Alipay real-name information verification. The `develop/v1.2` branch hardens production callback handling, adds visible storage backend preparation, and exposes the advanced provider layer for Alipay face verification, bank-card factors, company factors, legal-representative face verification, overseas KYC API adapters, and TLD enforcement rules.
 
 ## Package Layout
 
@@ -128,11 +128,37 @@ Required settings:
 - `Alipay authorization URL`, default: `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm`
 - Add the displayed callback URL to the Alipay application authorization callback whitelist.
 
+### AlipayFaceProvider
+
+Use this for Alipay face/identity verification and legal-representative face verification. The client submits name and Chinese mainland ID number, the addon initializes an Alipay certification, redirects the client to Alipay, then queries the certification result after callback.
+
+Required settings:
+
+- `Alipay AppID`
+- `Alipay app private key`
+- `Alipay face gateway URL`
+- `Alipay face biz code`
+- Add the displayed callback URL to the Alipay application callback whitelist.
+
+### BankCardProvider
+
+Use this for bank-card three/four/multi-factor verification. The admin can select either Tencent Cloud or Aliyun Marketplace AppCode.
+
+Tencent mode uses the shared Tencent SecretId/SecretKey, region, and OCR/API endpoint settings. Aliyun mode uses a Marketplace endpoint plus AppCode. Because Aliyun Marketplace products vary by request and response shape, the admin UI includes advanced request field names, extra JSON parameters, success JSON path, and accepted success values.
+
+### CompanyVerificationProvider
+
+Use this for company element verification. The admin can select Tencent Cloud or Aliyun Marketplace AppCode.
+
+Tencent mode uses the configured Tencent credential pair and OCR/company verification endpoint. Aliyun mode uses endpoint, AppCode, request field mapping, extra JSON parameters, success JSON path, and accepted success values.
+
+### OverseasKycProvider
+
+Use this for international KYC providers that expose a server-side JSON HTTP API. Configure endpoint, authorization header, API key/secret, success JSON path, and success value. Keep this disabled until the purchased provider's exact request schema and callback/response contract are confirmed.
+
 ### ManualReviewProvider
 
 Use this for manual uploads such as hand-held ID photos, passports, proof of address, utility bills, and business licenses.
-
-Future providers should implement the same provider interface and stay outside the main workflow.
 
 ## Secure File Storage
 
@@ -146,6 +172,8 @@ The addon writes `.htaccess`, `web.config`, and `index.html` deny files. For Ngi
 
 Administrators download documents only through the addon controller, with a WHMCS admin session and token check. Clients can see file names, status, and upload time, but they cannot download original document files from the client area.
 
+The admin storage selector can save S3/S3-compatible settings for a later storage adapter. In this build, uploads and downloads still use the local private storage path even when S3 settings are prepared.
+
 ## Email Templates
 
 In the admin Email Notifications card, click **Install default WHMCS email templates** to create:
@@ -155,6 +183,7 @@ In the admin Email Notifications card, click **Install default WHMCS email templ
 - `PeakRack KYC Rejected`
 
 The installer keeps existing templates and maps the three template settings automatically.
+Select **Refresh existing PeakRack templates** only when you intentionally want the bundled subject/body to overwrite existing PeakRack KYC templates.
 
 ## Database Tables
 
@@ -206,6 +235,11 @@ For release builds, also compare the source package against `modules/addons/peak
 - Submit Alipay real-name verification in test mode.
 - In an Alipay staging app, confirm `preconsult -> authorization callback -> token exchange -> consult` with a real callback whitelist entry.
 - Confirm Alipay callbacks still resolve if the `peakrack_kyc_alipay` session key is missing but the WHMCS client remains logged in.
+- Submit Alipay face verification in test mode, then test a real callback flow in an Alipay staging app before production use.
+- Test bank-card verification in Tencent mode and Aliyun mode separately if both channels will be offered.
+- Test company verification in Tencent mode and Aliyun mode separately if both channels will be offered.
+- Test the overseas KYC adapter only against a staging endpoint or a provider sandbox with the final request/response mapping.
+- Confirm system checks warn only for credentials required by the selected providers.
 - Submit manual individual KYC with JPG, PNG, and PDF files.
 - Confirm MIME mismatch files are rejected.
 - Approve, reject, revoke, and request resubmission from admin.
