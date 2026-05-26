@@ -195,4 +195,6 @@ attachments/peakrack_kyc_private/
 
 本项目基于 Proprietary License 发布。完整许可证请查看 [LICENSE](LICENSE)。
 
+授权、续期、再分发或书面许可请求请发送至 `legal@peakrack.com`。
+
 其他项目声明请查看 [NOTICE](NOTICE)。

@@ -28,3 +28,9 @@ modules/addons/peakrack_kyc/
 
 v1.2 开发分支保留 Provider 框架，并新增支付宝 OAuth state 数据库存储，避免授权回调只依赖 PHP session。
 当前高级 Provider 已覆盖支付宝人脸、银行卡要素、企业要素、法人人脸和可配置海外 KYC API；银行卡和企业核验可在后台切换腾讯云或阿里云市场 AppCode 通道。后台默认只展示当前通道必填项，字段映射和响应判断放在高级区域。
+
+## 许可证
+
+此可部署模块目录内已包含 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。
+
+授权、续期、再分发或书面许可请求请发送至 `legal@peakrack.com`。

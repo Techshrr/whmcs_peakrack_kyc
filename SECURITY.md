@@ -4,16 +4,16 @@
 
 Please do not open public GitHub issues for security vulnerabilities.
 
-Report security issues to:
+Report issues involving KYC enforcement, document storage, provider callbacks, admin document access, or identity-data handling to:
 
 security@peakrack.com
 
 Please include:
 
-- Affected project and version
-- Description of the issue
-- Steps to reproduce
-- Potential impact
+- Affected addon version, WHMCS version, PHP version, and active provider
+- Whether the issue affects client submission, admin review, provider callback, checkout enforcement, or document download
+- Description of the issue and reproduction steps
+- Potential impact on identity verification, document access, or provisioning enforcement
 - Suggested mitigation, if available
 
 ## Supported versions
@@ -25,11 +25,18 @@ Please include:
 
 ## Sensitive data
 
-Do not include real customer data, production API keys, payment secrets, database credentials, WHMCS license information, identity documents, private signing keys, or server passwords in reports.
-For proprietary KYC or risk projects, do not include real identity documents, customer names, phone numbers, ID numbers, passports, production risk rules, bypass methods, provider credentials, or review exports in public reports.
+Do not include real identity documents, selfies, passport scans, customer names, phone numbers, ID numbers, business registration numbers, provider credentials, callback payloads, verification exports, storage paths from production systems, WHMCS license data, or bypass details in public reports.
+
+## Licensing contact
+
+Licensing, redistribution, and written-permission requests for this proprietary project should be sent to:
+
+legal@peakrack.com
+
+Security reports should still be sent to `security@peakrack.com`.
 
 ## Public issues
 
-General bugs and feature requests may be submitted through GitHub Issues.
+Non-sensitive documentation fixes and compatibility reports may be submitted through GitHub Issues.
 
 Security vulnerabilities must be reported privately by email.

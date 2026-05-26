@@ -262,4 +262,6 @@ For release builds, also compare the source package against `modules/addons/peak
 
 This project is licensed under the Proprietary License. See [LICENSE](LICENSE) for details.
 
+Licensing and written-permission requests should be sent to `legal@peakrack.com`.
+
 Additional project notices are available in [NOTICE](NOTICE).
