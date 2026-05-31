@@ -1,8 +1,11 @@
 # Upgrade Notes
 
-## 1.2.0-dev
+## 1.2.0
 
+- Adds Hong Kong Traditional Chinese client-area and admin-facing text, including checkout validation messages and the default client notice.
+- Adds `peakrack_kyc/lang/chinese-hk.php` for WHMCS installations that use the Hong Kong Traditional Chinese language file.
 - Adds `mod_peakrack_kyc_oauth_states` for Alipay OAuth callback state persistence.
+- Adds a GitHub shortcut and browser-side update notice to the WHMCS addon admin page. No server-side migration is required for this admin display.
 - Open the addon page once after upload so `peakrackKycCreateTables()` can create the new table automatically.
 - If you use manual SQL deployment, apply `database/mysql.sql` before enabling Alipay real-name verification.
 - Adds visible S3/S3-compatible settings for later storage-adapter rollout. Uploads still use local private storage in this build.

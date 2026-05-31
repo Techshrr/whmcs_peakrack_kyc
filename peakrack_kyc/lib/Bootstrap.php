@@ -37,7 +37,7 @@ require_once __DIR__ . '/Providers/CompanyVerificationProvider.php';
 require_once __DIR__ . '/Providers/OverseasKycProvider.php';
 
 const PRKYC_MODULE = 'peakrack_kyc';
-const PRKYC_VERSION = '1.2.0-dev';
+const PRKYC_VERSION = '1.2.0';
 const PRKYC_SETTING_KEY = 'config';
 const PRKYC_SETTINGS_TABLE = 'mod_peakrack_kyc_settings';
 const PRKYC_PROFILES_TABLE = 'mod_peakrack_kyc_profiles';
@@ -148,6 +148,7 @@ if (!function_exists('peakrackKycDefaults')) {
             'clientNotice' => [
                 'en' => 'Some products require identity verification before checkout or service activation.',
                 'zh' => '部分产品需要完成实名认证后才可下单或开通服务。',
+                'zh-hk' => '部分產品需要完成實名認證後才可下單或開通服務。',
             ],
         ];
     }
@@ -579,9 +580,11 @@ if (!function_exists('peakrackKycMergeSettings')) {
             $settings['alipayCertType'] = $defaults['alipayCertType'];
         }
 
-        foreach (['en', 'zh'] as $language) {
+        foreach (['en', 'zh', 'zh-hk'] as $language) {
             if (!isset($settings['clientNotice'][$language]) || !is_scalar($settings['clientNotice'][$language])) {
-                $settings['clientNotice'][$language] = $defaults['clientNotice'][$language];
+                $settings['clientNotice'][$language] = $language === 'zh-hk'
+                    ? peakrackKycTraditionalize((string) ($settings['clientNotice']['zh'] ?? $defaults['clientNotice']['zh']))
+                    : $defaults['clientNotice'][$language];
             }
         }
 
@@ -2407,11 +2410,13 @@ if (!function_exists('peakrackKycCheckoutValidation')) {
 
         $language = peakrackKycClientLanguage($clientId, $vars);
         $link = 'index.php?m=peakrack_kyc';
-        if ($language === 'zh') {
-            return ['此产品需要先完成实名认证。请前往 <a href="' . $link . '">实名认证中心</a> 提交资料或完成 API 校验。'];
-        }
-
-        return ['This product requires identity verification. Please visit the <a href="' . $link . '">KYC center</a> before checkout.'];
+        return [
+            peakrackKycLocaleText(
+                $language,
+                '此产品需要先完成实名认证。请前往 <a href="' . $link . '">实名认证中心</a> 提交资料或完成 API 校验。',
+                'This product requires identity verification. Please visit the <a href="' . $link . '">KYC center</a> before checkout.'
+            ),
+        ];
     }
 }
 
@@ -3633,20 +3638,173 @@ if (!function_exists('peakrackKycServiceProductId')) {
     }
 }
 
+if (!function_exists('peakrackKycTraditionalize')) {
+    function peakrackKycTraditionalize(string $text): string
+    {
+        if ($text === '') {
+            return '';
+        }
+
+        $phrases = [
+            '邮箱地址' => '電郵地址',
+            '邮箱' => '電郵',
+            '验证' => '驗證',
+            '验证码' => '驗證碼',
+            '身份证' => '身份證',
+            '证件' => '證件',
+            '银行卡' => '銀行卡',
+            '人工审核' => '人工審核',
+            '实名认证' => '實名認證',
+            '实名' => '實名',
+            '产品' => '產品',
+            '服务' => '服務',
+            '中国大陆' => '中國大陸',
+            '手机号' => '手機號',
+            '手机' => '手機',
+            '校验' => '校驗',
+            '核验' => '核驗',
+            '号码' => '號碼',
+            '卡号' => '卡號',
+            '注册号' => '註冊號',
+            '真实姓名' => '真實姓名',
+            '法人人脸' => '法人人臉',
+            '人脸' => '人臉',
+            '负责人' => '負責人',
+            '名称' => '名稱',
+            '统一社会信用代码' => '統一社會信用代碼',
+            '国家/地区' => '國家/地區',
+            '地区' => '地區',
+            '地址证明' => '地址證明',
+            '证明' => '證明',
+            '允许' => '允許',
+            '备注' => '備註',
+            '最后' => '最後',
+            '驳回' => '駁回',
+            '暂无' => '暫無',
+            '记录' => '記錄',
+            '结果' => '結果',
+            '日志' => '日誌',
+            '高级' => '高級',
+            '密钥' => '密鑰',
+            '支付宝' => '支付寶',
+            '企业' => '企業',
+            '订单' => '訂單',
+            '账单' => '帳單',
+            '账户' => '帳戶',
+            '客户' => '客戶',
+            '设置' => '設定',
+            '启用' => '啟用',
+            '跳转' => '跳轉',
+            '开通' => '開通',
+            '上传' => '上傳',
+            '文件' => '檔案',
+            '删除' => '刪除',
+            '状态' => '狀態',
+            '资料' => '資料',
+            '信息' => '資訊',
+            '请' => '請',
+        ];
+        $text = strtr($text, $phrases);
+
+        return strtr($text, [
+            '为' => '為', '开' => '開', '关' => '關', '发' => '發', '过' => '過',
+            '后' => '後', '时' => '時', '钟' => '鐘', '临' => '臨', '锁' => '鎖',
+            '错' => '錯', '误' => '誤', '码' => '碼', '证' => '證', '账' => '帳',
+            '户' => '戶', '邮' => '郵', '删' => '刪', '启' => '啟', '动' => '動',
+            '态' => '態', '类' => '類', '个' => '個', '国' => '國', '区' => '區',
+            '统' => '統', '务' => '務', '联' => '聯', '络' => '絡', '护' => '護',
+            '照' => '照', '员' => '員', '创' => '創', '无' => '無', '达' => '達',
+            '额' => '額', '现' => '現', '称' => '稱', '复' => '複', '获' => '獲',
+            '经' => '經', '项' => '項', '错' => '錯', '试' => '試', '实' => '實',
+            '认' => '認', '产' => '產', '陆' => '陸', '机' => '機', '验' => '驗',
+            '脸' => '臉', '名' => '名', '会' => '會', '许' => '許', '备' => '備',
+            '注' => '註', '暂' => '暫', '录' => '錄', '结' => '結', '级' => '級',
+            '钥' => '鑰', '宝' => '寶', '银' => '銀', '转' => '轉', '权' => '權',
+            '询' => '詢', '应' => '應', '须' => '須', '续' => '續', '确' => '確',
+            '输' => '輸', '数' => '數', '据' => '據', '览' => '覽', '这' => '這',
+            '条' => '條', '详' => '詳', '审' => '審', '驳' => '駁', '号' => '號',
+            '将' => '將', '对' => '對', '责' => '責', '册' => '冊',
+        ]);
+    }
+}
+
+if (!function_exists('peakrackKycTraditionalizeArray')) {
+    function peakrackKycTraditionalizeArray(array $values): array
+    {
+        foreach ($values as $key => $value) {
+            if (is_string($value)) {
+                $values[$key] = peakrackKycTraditionalize($value);
+            } elseif (is_array($value)) {
+                $values[$key] = peakrackKycTraditionalizeArray($value);
+            }
+        }
+
+        return $values;
+    }
+}
+
+if (!function_exists('peakrackKycIsTraditionalChineseLocale')) {
+    function peakrackKycIsTraditionalChineseLocale(string $language): bool
+    {
+        $language = strtolower(str_replace('_', '-', trim($language)));
+
+        return str_contains($language, 'zh-hk')
+            || str_contains($language, 'chinese-hk')
+            || str_contains($language, 'hongkong')
+            || str_contains($language, 'hong-kong')
+            || str_contains($language, 'hant')
+            || str_contains($language, 'traditional')
+            || str_contains($language, '繁體')
+            || str_contains($language, '繁体');
+    }
+}
+
+if (!function_exists('peakrackKycIsChineseLocale')) {
+    function peakrackKycIsChineseLocale(string $language): bool
+    {
+        $language = strtolower(str_replace('_', '-', trim($language)));
+
+        return $language === 'zh'
+            || $language === 'zh-hk'
+            || str_contains($language, 'chinese')
+            || str_starts_with($language, 'zh')
+            || str_contains($language, 'cn')
+            || str_contains($language, '中文')
+            || str_contains($language, '繁體')
+            || str_contains($language, '繁体')
+            || str_contains($language, '简体');
+    }
+}
+
+if (!function_exists('peakrackKycLocaleText')) {
+    function peakrackKycLocaleText(string $language, string $zh, string $en): string
+    {
+        if (!peakrackKycIsChineseLocale($language)) {
+            return $en;
+        }
+
+        return $language === 'zh-hk' ? peakrackKycTraditionalize($zh) : $zh;
+    }
+}
+
 if (!function_exists('peakrackKycClientLanguage')) {
     function peakrackKycClientLanguage(int $clientId = 0, array $vars = []): string
     {
-        $language = strtolower((string) ($vars['language'] ?? ($_SESSION['Language'] ?? '')));
+        $language = strtolower(str_replace('_', '-', (string) ($vars['language'] ?? ($_SESSION['Language'] ?? ''))));
         if ($language === '' && $clientId > 0) {
             try {
                 $client = Capsule::table('tblclients')->where('id', $clientId)->first();
-                $language = strtolower((string) ($client->language ?? ''));
+                $language = strtolower(str_replace('_', '-', (string) ($client->language ?? '')));
             } catch (Throwable $e) {
                 $language = '';
             }
         }
 
-        return str_contains($language, 'chinese') || str_contains($language, 'zh') ? 'zh' : 'en';
+        if (peakrackKycIsTraditionalChineseLocale($language)) {
+            return 'zh-hk';
+        }
+
+        return peakrackKycIsChineseLocale($language) ? 'zh' : 'en';
     }
 }
 
@@ -3673,6 +3831,10 @@ if (!function_exists('peakrackKycText')) {
                 'document_deleted' => '文件已删除。',
             ],
         ];
+
+        if ($language === 'zh-hk') {
+            return peakrackKycTraditionalize((string) ($texts['zh'][$key] ?? $texts['en'][$key] ?? $key));
+        }
 
         return $texts[$language][$key] ?? $texts['en'][$key] ?? $key;
     }

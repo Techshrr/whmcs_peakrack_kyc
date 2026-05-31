@@ -1,8 +1,11 @@
 # 升级说明
 
-## 1.2.0-dev
+## 1.2.0
 
+- 新增香港繁体中文客户区和后台相关文案，包括结账校验提示和默认客户提示。
+- 新增 `peakrack_kyc/lang/chinese-hk.php`，用于启用香港繁体中文语言文件的 WHMCS 安装。
 - 新增 `mod_peakrack_kyc_oauth_states`，用于持久化支付宝 OAuth 授权回调 state。
+- 插件后台页面现在包含 GitHub 仓库入口和浏览器侧更新提示；该后台显示不需要服务端迁移。
 - 覆盖上传后打开一次插件后台页面，`peakrackKycCreateTables()` 会自动创建新表。
 - 如果生产环境采用手动 SQL 变更，请先执行 `database/mysql.sql`，再启用支付宝实名信息验证。
 - 新增 S3/S3 兼容存储配置入口，便于后续启用对象存储适配器；当前版本上传和下载仍使用本地私有存储。

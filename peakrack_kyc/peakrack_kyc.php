@@ -237,9 +237,9 @@ function peakrack_kyc_clientarea(array $vars): array
     $text = peakrack_kyc_client_texts($language);
 
     return [
-        'pagetitle' => $language === 'zh' ? '实名认证中心' : 'Identity Verification',
+        'pagetitle' => peakrackKycLocaleText($language, '实名认证中心', 'Identity Verification'),
         'breadcrumb' => [
-            'index.php?m=peakrack_kyc' => $language === 'zh' ? '实名认证中心' : 'Identity Verification',
+            'index.php?m=peakrack_kyc' => peakrackKycLocaleText($language, '实名认证中心', 'Identity Verification'),
         ],
         'templatefile' => 'templates/clientarea',
         'requirelogin' => true,
@@ -286,7 +286,7 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
 
     $isBankCardProvider = (string) ($settings['apiProvider'] ?? '') === 'bank_card_multi_factor';
     if ($realName === '' || $idNumber === '' || (!$isBankCardProvider && $phone === '') || ($isBankCardProvider && ($bankCard === '' || ((string) ($settings['bankCardFactorMode'] ?? '4') === '4' && $phone === '')))) {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名、身份证号码和手机号。' : 'Name, ID number, and phone number are required.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写姓名、身份证号码和手机号。', 'Name, ID number, and phone number are required.')];
     }
 
     if ($isBankCardProvider) {
@@ -345,7 +345,7 @@ function peakrack_kyc_handle_api_submission(int $clientId, array $settings): arr
 
     $code = (string) ($result['code'] ?? '');
     $clientMessage = in_array($code, ['transport_error', 'missing_credentials'], true)
-        ? ($language === 'zh' ? '实名服务暂时不可用，请稍后重试或提交人工审核。' : 'The verification service is temporarily unavailable. Please try again later or submit documents for manual review.')
+        ? (peakrackKycLocaleText($language, '实名服务暂时不可用，请稍后重试或提交人工审核。', 'The verification service is temporarily unavailable. Please try again later or submit documents for manual review.'))
         : (string) ($result['message'] ?? '');
 
     return ['success' => false, 'message' => peakrackKycText($language, 'api_failed') . ' ' . $clientMessage];
@@ -355,7 +355,7 @@ function peakrack_kyc_handle_bank_card_submission(int $clientId, array $settings
 {
     $language = peakrackKycClientLanguage($clientId);
     if (empty($settings['bankCardEnabled'])) {
-        return ['success' => false, 'message' => $language === 'zh' ? '银行卡多要素认证暂未启用。' : 'Bank-card verification is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '银行卡多要素认证暂未启用。', 'Bank-card verification is not enabled.')];
     }
 
     $realName = trim((string) ($_POST['real_name'] ?? ''));
@@ -363,7 +363,7 @@ function peakrack_kyc_handle_bank_card_submission(int $clientId, array $settings
     $phone = trim((string) ($_POST['phone'] ?? ''));
     $bankCard = trim((string) ($_POST['bank_card'] ?? ''));
     if ($realName === '' || $idNumber === '' || $bankCard === '' || ((string) ($settings['bankCardFactorMode'] ?? '4') === '4' && $phone === '')) {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写银行卡核验所需的全部要素。' : 'Please complete all required bank-card verification fields.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写银行卡核验所需的全部要素。', 'Please complete all required bank-card verification fields.')];
     }
 
     if (!empty($settings['apiTestMode'])) {
@@ -406,8 +406,8 @@ function peakrack_kyc_handle_bank_card_submission(int $clientId, array $settings
     return [
         'success' => $success,
         'message' => $success
-            ? ($language === 'zh' ? '银行卡多要素认证已通过。' : 'Bank-card verification passed.')
-            : (($language === 'zh' ? '银行卡多要素认证未通过：' : 'Bank-card verification failed: ') . (string) ($result['message'] ?? '')),
+            ? (peakrackKycLocaleText($language, '银行卡多要素认证已通过。', 'Bank-card verification passed.'))
+            : ((peakrackKycLocaleText($language, '银行卡多要素认证未通过：', 'Bank-card verification failed: ')) . (string) ($result['message'] ?? '')),
     ];
 }
 
@@ -415,7 +415,7 @@ function peakrack_kyc_handle_company_submission(int $clientId, array $settings):
 {
     $language = peakrackKycClientLanguage($clientId);
     if (empty($settings['companyVerificationEnabled'])) {
-        return ['success' => false, 'message' => $language === 'zh' ? '企业要素核验暂未启用。' : 'Company verification is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '企业要素核验暂未启用。', 'Company verification is not enabled.')];
     }
 
     $companyName = trim((string) ($_POST['company_name'] ?? ''));
@@ -423,7 +423,7 @@ function peakrack_kyc_handle_company_submission(int $clientId, array $settings):
     $legalPersonName = trim((string) ($_POST['legal_person_name'] ?? ''));
     $legalPersonId = trim((string) ($_POST['legal_person_id'] ?? ''));
     if ($companyName === '' || $registrationNumber === '' || $legalPersonName === '' || $legalPersonId === '') {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写企业名称、统一社会信用代码、法人姓名和法人证件号。' : 'Company name, credit code, legal representative name, and legal representative ID are required.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写企业名称、统一社会信用代码、法人姓名和法人证件号。', 'Company name, credit code, legal representative name, and legal representative ID are required.')];
     }
 
     if (!empty($settings['apiTestMode'])) {
@@ -467,8 +467,8 @@ function peakrack_kyc_handle_company_submission(int $clientId, array $settings):
     return [
         'success' => $success,
         'message' => $success
-            ? ($language === 'zh' ? '企业要素核验已通过。' : 'Company verification passed.')
-            : (($language === 'zh' ? '企业要素核验未通过：' : 'Company verification failed: ') . (string) ($result['message'] ?? '')),
+            ? (peakrackKycLocaleText($language, '企业要素核验已通过。', 'Company verification passed.'))
+            : ((peakrackKycLocaleText($language, '企业要素核验未通过：', 'Company verification failed: ')) . (string) ($result['message'] ?? '')),
     ];
 }
 
@@ -476,14 +476,14 @@ function peakrack_kyc_handle_overseas_kyc_submission(int $clientId, array $setti
 {
     $language = peakrackKycClientLanguage($clientId);
     if (empty($settings['overseasKycEnabled'])) {
-        return ['success' => false, 'message' => $language === 'zh' ? '海外 KYC API 暂未启用。' : 'Overseas KYC API is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '海外 KYC API 暂未启用。', 'Overseas KYC API is not enabled.')];
     }
 
     $realName = trim((string) ($_POST['real_name'] ?? ''));
     $passportNumber = trim((string) ($_POST['passport_number'] ?? ''));
     $country = strtoupper(substr(trim((string) ($_POST['country'] ?? '')), 0, 2));
     if ($realName === '' || $passportNumber === '' || $country === '') {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名、护照/证件号码和国家代码。' : 'Name, passport/document number, and country code are required.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写姓名、护照/证件号码和国家代码。', 'Name, passport/document number, and country code are required.')];
     }
 
     if (!empty($settings['apiTestMode'])) {
@@ -523,8 +523,8 @@ function peakrack_kyc_handle_overseas_kyc_submission(int $clientId, array $setti
     return [
         'success' => $success,
         'message' => $success
-            ? ($language === 'zh' ? '海外 KYC API 核验已通过。' : 'Overseas KYC verification passed.')
-            : (($language === 'zh' ? '海外 KYC API 核验未通过：' : 'Overseas KYC verification failed: ') . (string) ($result['message'] ?? '')),
+            ? (peakrackKycLocaleText($language, '海外 KYC API 核验已通过。', 'Overseas KYC verification passed.'))
+            : ((peakrackKycLocaleText($language, '海外 KYC API 核验未通过：', 'Overseas KYC verification failed: ')) . (string) ($result['message'] ?? '')),
     ];
 }
 
@@ -532,14 +532,14 @@ function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settin
 {
     $language = peakrackKycClientLanguage($clientId);
     if (empty($settings['alipayRealNameEnabled'])) {
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝实名信息验证暂未启用。' : 'Alipay real-name verification is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝实名信息验证暂未启用。', 'Alipay real-name verification is not enabled.')];
     }
 
     $realName = trim((string) ($_POST['real_name'] ?? ''));
     $idNumber = trim((string) ($_POST['id_number'] ?? ''));
     $phone = trim((string) ($_POST['phone'] ?? ''));
     if ($realName === '' || $idNumber === '') {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名和身份证号码。' : 'Legal name and ID number are required.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写姓名和身份证号码。', 'Legal name and ID number are required.')];
     }
 
     if (!empty($settings['apiTestMode'])) {
@@ -565,7 +565,7 @@ function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settin
         ]);
         peakrackKycLog('info', 'Client passed Alipay KYC in test mode', $clientId, 0, ['profile_id' => $profileId]);
         peakrackKycSendClientNotification($clientId, 'verified', ['profile_id' => $profileId], $settings);
-        return ['success' => true, 'message' => $language === 'zh' ? '测试模式：支付宝实名信息验证已通过。' : 'Test mode: Alipay real-name verification passed.'];
+        return ['success' => true, 'message' => peakrackKycLocaleText($language, '测试模式：支付宝实名信息验证已通过。', 'Test mode: Alipay real-name verification passed.')];
     }
 
     $preconsult = peakrackKycAlipayCertdocPreconsult($clientId, $realName, $idNumber, $phone, $settings);
@@ -573,9 +573,11 @@ function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settin
         $message = (string) ($preconsult['message'] ?? '');
         return [
             'success' => false,
-            'message' => $language === 'zh'
-                ? ('支付宝实名预咨询失败，请稍后重试或提交人工审核。' . ($message !== '' ? ' ' . $message : ''))
-                : ('Alipay preconsult failed. Please try again later or submit documents for manual review.' . ($message !== '' ? ' ' . $message : '')),
+            'message' => peakrackKycLocaleText(
+                $language,
+                '支付宝实名预咨询失败，请稍后重试或提交人工审核。',
+                'Alipay preconsult failed. Please try again later or submit documents for manual review.'
+            ) . ($message !== '' ? ' ' . $message : ''),
         ];
     }
 
@@ -620,7 +622,7 @@ function peakrack_kyc_handle_alipay_real_name_start(int $clientId, array $settin
 
     return [
         'success' => true,
-        'message' => $language === 'zh' ? '正在跳转到支付宝授权。' : 'Redirecting to Alipay authorization.',
+        'message' => peakrackKycLocaleText($language, '正在跳转到支付宝授权。', 'Redirecting to Alipay authorization.'),
         'redirect_url' => peakrackKycAlipayAuthUrl($state, $settings),
     ];
 }
@@ -652,16 +654,16 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
     }
 
     if ($state === '' || empty($session) || (int) ($session['client_id'] ?? 0) !== $clientId) {
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝授权状态已失效，请重新发起实名验证。' : 'The Alipay authorization state is invalid or expired. Please start verification again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝授权状态已失效，请重新发起实名验证。', 'The Alipay authorization state is invalid or expired. Please start verification again.')];
     }
 
     if ((int) ($session['created_at'] ?? 0) < time() - 1800) {
         unset($_SESSION['peakrack_kyc_alipay'][$state]);
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝授权已超时，请重新发起实名验证。' : 'The Alipay authorization timed out. Please start verification again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝授权已超时，请重新发起实名验证。', 'The Alipay authorization timed out. Please start verification again.')];
     }
 
     if ($authCode === '') {
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝未返回授权码，请重新授权。' : 'Alipay did not return an authorization code. Please authorize again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝未返回授权码，请重新授权。', 'Alipay did not return an authorization code. Please authorize again.')];
     }
 
     $token = peakrackKycAlipayOauthToken($clientId, $authCode, $settings);
@@ -670,7 +672,7 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
             peakrackKycConsumeOauthState($stateId);
         }
         unset($_SESSION['peakrack_kyc_alipay'][$state]);
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝授权令牌换取失败，请重新尝试。' : 'Unable to exchange the Alipay authorization code. Please try again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝授权令牌换取失败，请重新尝试。', 'Unable to exchange the Alipay authorization code. Please try again.')];
     }
 
     $provider = peakrackKycProvider('alipay_real_name_info');
@@ -729,8 +731,8 @@ function peakrack_kyc_handle_alipay_real_name_callback(int $clientId, array $set
     return [
         'success' => $success,
         'message' => $success
-            ? ($language === 'zh' ? '支付宝实名信息验证已通过。' : 'Alipay real-name verification passed.')
-            : ($language === 'zh' ? '支付宝实名信息验证未通过：' : 'Alipay real-name verification failed: ') . $message,
+            ? (peakrackKycLocaleText($language, '支付宝实名信息验证已通过。', 'Alipay real-name verification passed.'))
+            : (peakrackKycLocaleText($language, '支付宝实名信息验证未通过：', 'Alipay real-name verification failed: ')) . $message,
     ];
 }
 
@@ -744,10 +746,10 @@ function peakrack_kyc_handle_alipay_face_start(int $clientId, array $settings): 
     $companyName = trim((string) ($_POST['company_name'] ?? ''));
     $registrationNumber = trim((string) ($_POST['registration_number'] ?? ''));
     if (($profileType === 'corporate' && empty($settings['legalFaceEnabled'])) || ($profileType !== 'corporate' && empty($settings['alipayFaceEnabled']))) {
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名暂未启用。' : 'Alipay face verification is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝人脸实名暂未启用。', 'Alipay face verification is not enabled.')];
     }
     if ($realName === '' || $idNumber === '') {
-        return ['success' => false, 'message' => $language === 'zh' ? '请填写姓名和身份证号码。' : 'Legal name and ID number are required.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '请填写姓名和身份证号码。', 'Legal name and ID number are required.')];
     }
 
     if (!empty($settings['apiTestMode'])) {
@@ -770,7 +772,7 @@ function peakrack_kyc_handle_alipay_face_start(int $clientId, array $settings): 
             'registration_number' => $registrationNumber,
         ], ['success' => true, 'code' => 'test_mode']);
         peakrackKycSendClientNotification($clientId, 'verified', ['profile_id' => $profileId], $settings);
-        return ['success' => true, 'message' => $language === 'zh' ? '测试模式：支付宝人脸实名已通过。' : 'Test mode: Alipay face verification passed.'];
+        return ['success' => true, 'message' => peakrackKycLocaleText($language, '测试模式：支付宝人脸实名已通过。', 'Test mode: Alipay face verification passed.')];
     }
 
     $state = bin2hex(random_bytes(16));
@@ -778,7 +780,7 @@ function peakrack_kyc_handle_alipay_face_start(int $clientId, array $settings): 
     if (empty($initialize['success'])) {
         return [
             'success' => false,
-            'message' => ($language === 'zh' ? '支付宝人脸实名初始化失败：' : 'Alipay face initialization failed: ') . (string) ($initialize['message'] ?? ''),
+            'message' => (peakrackKycLocaleText($language, '支付宝人脸实名初始化失败：', 'Alipay face initialization failed: ')) . (string) ($initialize['message'] ?? ''),
         ];
     }
 
@@ -822,7 +824,7 @@ function peakrack_kyc_handle_alipay_face_start(int $clientId, array $settings): 
 
     return [
         'success' => true,
-        'message' => $language === 'zh' ? '正在跳转到支付宝人脸实名。' : 'Redirecting to Alipay face verification.',
+        'message' => peakrackKycLocaleText($language, '正在跳转到支付宝人脸实名。', 'Redirecting to Alipay face verification.'),
         'redirect_url' => peakrackKycAlipayFaceCertifyUrl($certifyId, $state, $settings),
     ];
 }
@@ -853,7 +855,7 @@ function peakrack_kyc_handle_alipay_face_callback(int $clientId, array $settings
     }
 
     if ($state === '' || empty($session) || (int) ($session['client_id'] ?? 0) !== $clientId) {
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名状态已失效，请重新发起。' : 'The Alipay face verification state is invalid or expired. Please start again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝人脸实名状态已失效，请重新发起。', 'The Alipay face verification state is invalid or expired. Please start again.')];
     }
 
     if ((int) ($session['created_at'] ?? 0) < time() - 1800) {
@@ -861,7 +863,7 @@ function peakrack_kyc_handle_alipay_face_callback(int $clientId, array $settings
         if ($stateId > 0) {
             peakrackKycConsumeOauthState($stateId);
         }
-        return ['success' => false, 'message' => $language === 'zh' ? '支付宝人脸实名已超时，请重新发起。' : 'The Alipay face verification timed out. Please start again.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '支付宝人脸实名已超时，请重新发起。', 'The Alipay face verification timed out. Please start again.')];
     }
 
     $result = peakrackKycProvider('alipay_face')->verify([
@@ -923,8 +925,8 @@ function peakrack_kyc_handle_alipay_face_callback(int $clientId, array $settings
     return [
         'success' => $success,
         'message' => $success
-            ? ($language === 'zh' ? '支付宝人脸实名已通过。' : 'Alipay face verification passed.')
-            : (($language === 'zh' ? '支付宝人脸实名未通过：' : 'Alipay face verification failed: ') . $message),
+            ? (peakrackKycLocaleText($language, '支付宝人脸实名已通过。', 'Alipay face verification passed.'))
+            : ((peakrackKycLocaleText($language, '支付宝人脸实名未通过：', 'Alipay face verification failed: ')) . $message),
     ];
 }
 
@@ -932,7 +934,7 @@ function peakrack_kyc_handle_manual_submission(int $clientId, array $settings): 
 {
     $language = peakrackKycClientLanguage($clientId);
     if (!$settings['manualReviewEnabled']) {
-        return ['success' => false, 'message' => $language === 'zh' ? '人工审核通道暂未启用。' : 'Manual review is not enabled.'];
+        return ['success' => false, 'message' => peakrackKycLocaleText($language, '人工审核通道暂未启用。', 'Manual review is not enabled.')];
     }
 
     if (!peakrack_kyc_has_uploads()) {
@@ -1115,6 +1117,18 @@ function peakrack_kyc_settings_from_post(array $current): array
     return peakrackKycMergeSettings(peakrackKycDefaults(), $settings);
 }
 
+function peakrack_kyc_github_icon(): string
+{
+    return '<svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14" focusable="false" style="display:inline-block;vertical-align:-2px;margin-right:4px;fill:currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.64 7.64 0 0 1 8 3.86c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+}
+
+function peakrack_kyc_github_admin_html(): string
+{
+    return '<a class="btn btn-default btn-sm prkyc-github-link" href="https://github.com/Techshrr/whmcs_peakrack_kyc" target="_blank" rel="noopener noreferrer" title="GitHub repository">' . peakrack_kyc_github_icon() . 'GitHub</a>'
+        . '<a class="btn btn-warning btn-sm prkyc-update-badge" href="https://github.com/Techshrr/whmcs_peakrack_kyc/releases" target="_blank" rel="noopener noreferrer" data-prk-github-update data-prk-github-repo="Techshrr/whmcs_peakrack_kyc" data-prk-github-current="' . peakrackKycE(PRKYC_VERSION) . '" data-prk-github-label="New version {version}" style="display:none"></a>'
+        . '<script>(function(){if(window.PeakRackGithubUpdateCheck){window.PeakRackGithubUpdateCheck();return;}window.PeakRackGithubUpdateCheck=function(){var nodes=document.querySelectorAll("[data-prk-github-update]");if(!nodes.length||!window.fetch){return;}function normalize(v){return String(v||"").replace(/^v/i,"").replace(/[^0-9A-Za-z.\\-+]/g,"");}function compare(a,b){var aa=normalize(a).split(/[.\\-+]/),bb=normalize(b).split(/[.\\-+]/),len=Math.max(aa.length,bb.length);for(var i=0;i<len;i++){var av=aa[i]||"",bv=bb[i]||"";if(av===""&&bv!==""){return 1;}if(av!==""&&bv===""){return -1;}var an=/^\\d+$/.test(av),bn=/^\\d+$/.test(bv);if(an&&bn){var ai=parseInt(av,10),bi=parseInt(bv,10);if(ai!==bi){return ai>bi?1:-1;}}else if(av!==bv){return av>bv?1:-1;}}return 0;}function readCache(repo){try{var raw=localStorage.getItem("peakrack.github.update."+repo);if(!raw){return null;}var data=JSON.parse(raw);if(!data||!data.checkedAt||Date.now()-data.checkedAt>43200000){return null;}return data;}catch(e){return null;}}function writeCache(repo,data){try{data.checkedAt=Date.now();localStorage.setItem("peakrack.github.update."+repo,JSON.stringify(data));}catch(e){}}function fetchJson(url){var controller=window.AbortController?new AbortController():null;var timer=controller?window.setTimeout(function(){controller.abort();},2000):null;return fetch(url,{headers:{Accept:"application/vnd.github+json"},signal:controller?controller.signal:undefined}).then(function(resp){if(timer){window.clearTimeout(timer);}if(!resp.ok){throw new Error("http");}return resp.json();}).catch(function(err){if(timer){window.clearTimeout(timer);}throw err;});}function latest(repo){var base="https://api.github.com/repos/"+repo;return fetchJson(base+"/releases/latest").then(function(data){return{version:data.tag_name||"",url:data.html_url||("https://github.com/"+repo+"/releases")};}).catch(function(){return fetchJson(base+"/tags?per_page=1").then(function(tags){var tag=tags&&tags[0]?tags[0].name:"";return{version:tag,url:tag?("https://github.com/"+repo+"/releases/tag/"+encodeURIComponent(tag)):("https://github.com/"+repo+"/releases")};});});}function apply(node,info){var current=node.getAttribute("data-prk-github-current")||"";if(info&&info.version&&compare(info.version,current)>0){node.href=info.url||node.href;node.textContent=(node.getAttribute("data-prk-github-label")||"New version {version}").replace("{version}",info.version);node.style.display="inline-flex";}}Array.prototype.forEach.call(nodes,function(node){var repo=node.getAttribute("data-prk-github-repo")||"";if(!repo){return;}var cached=readCache(repo);if(cached){apply(node,cached);return;}latest(repo).then(function(info){writeCache(repo,info);apply(node,info);}).catch(function(){});});};window.PeakRackGithubUpdateCheck();})();</script>';
+}
+
 function peakrack_kyc_render_admin(array $settings, string $message, string $messageType, string $language): string
 {
     $t = peakrack_kyc_admin_texts($language);
@@ -1142,6 +1156,8 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
     <style>
         .prkyc-wrap { max-width: 1280px; }
         .prkyc-header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin: 10px 0 18px; }
+        .prkyc-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+        .prkyc-update-badge { font-weight: 700; }
         .prkyc-card { border: 1px solid #d9dee3; border-radius: 6px; background: #fff; margin-bottom: 18px; }
         .prkyc-card h2 { font-size: 18px; margin: 0; padding: 14px 16px; border-bottom: 1px solid #e7eaee; }
         .prkyc-card .inner { padding: 16px; }
@@ -1192,7 +1208,8 @@ function peakrack_kyc_render_admin(array $settings, string $message, string $mes
             <div>
                 <p class="prkyc-muted"><?php echo peakrackKycE($t['subtitle']); ?> <strong><?php echo peakrackKycE(PRKYC_VERSION); ?></strong></p>
             </div>
-            <div>
+            <div class="prkyc-header-actions">
+                <?php echo peakrack_kyc_github_admin_html(); ?>
                 <a class="btn btn-default btn-sm" href="<?php echo peakrackKycE(peakrack_kyc_admin_url('en')); ?>">English</a>
                 <a class="btn btn-default btn-sm" href="<?php echo peakrackKycE(peakrack_kyc_admin_url('zh')); ?>">中文</a>
             </div>
@@ -2518,6 +2535,10 @@ function peakrack_kyc_admin_texts(string $language): array
         'result_code' => '结果码',
     ]);
 
+    if ($language === 'zh-hk') {
+        return peakrackKycTraditionalizeArray($texts['zh']);
+    }
+
     return $texts[$language] ?? $texts['en'];
 }
 
@@ -2607,6 +2628,10 @@ function peakrack_kyc_client_texts(string $language): array
             'allowed' => '允许文件',
         ],
     ];
+
+    if ($language === 'zh-hk') {
+        return peakrackKycTraditionalizeArray($texts['zh']);
+    }
 
     return $texts[$language] ?? $texts['en'];
 }

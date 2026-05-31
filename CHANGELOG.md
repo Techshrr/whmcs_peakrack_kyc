@@ -4,10 +4,13 @@ All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning where practical.
 
-## [1.2.0-dev] - Unreleased
+## [1.2.0] - 2026-06-01
 
 ### Added
 
+- Added Hong Kong Traditional Chinese handling for client-area KYC text, checkout validation messages, admin labels, and the default client notice.
+- Added a `chinese-hk.php` WHMCS language file for Traditional Chinese client-area installations.
+- Added a WHMCS admin-area GitHub shortcut and browser-side update notice for published GitHub releases or tags.
 - Added database-backed OAuth state storage for Alipay authorization callbacks.
 - Added a storage backend selector with local private storage active and S3-compatible settings reserved for a later adapter.
 - Added provider flows for Alipay face verification, Tencent bank-card factors, Tencent company factors, legal-representative face verification, and configurable overseas KYC JSON APIs.
@@ -19,6 +22,7 @@ This project follows Semantic Versioning where practical.
 - Simplified provider settings so the active provider channel shows required fields first.
 - Updated system checks so provider credential warnings follow the selected channels.
 - Updated English and Chinese documentation for the current provider matrix, storage status, release packaging, security notes, and testing checklist.
+- Replaced the admin GitHub shortcut icon with inline SVG so the button does not depend on WHMCS admin icon fonts.
 
 ### Security
 

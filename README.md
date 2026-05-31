@@ -9,7 +9,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 
 ## Current Version
 
-`1.2.0-dev`
+`1.2.0`
 
 ## Features
 
@@ -42,7 +42,7 @@ PeakRack KYC is a WHMCS addon module for identity verification, document upload,
 - Requires an authenticated WHMCS admin session and token for document downloads.
 - Allows clients to delete their own non-verified uploaded documents without downloading original files.
 - Stores sensitive ID, phone, and registration numbers as salted hashes plus last-four display values.
-- Provides English and Simplified Chinese admin/client text.
+- Provides English, Simplified Chinese, and Hong Kong Traditional Chinese admin/client text.
 - Uses Bootstrap-compatible markup for WHMCS themes including Lagom.
 - Keeps verification logs and API attempt logs with retention cleanup.
 
